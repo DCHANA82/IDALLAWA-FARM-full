@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Users, Printer, CalendarDays, Wallet, Download, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Pencil, Trash2 } from 'lucide-react';
 import { useStore, newId, upsertRow } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { LKR, fmtDate, todayISO, downloadFile, toCSV } from '@/lib/format';
@@ -10,9 +10,11 @@ import { DataTable, StatusBadge } from '@/components/DataTable';
 import { TabBar } from '@/components/TabBar';
 import { printContent, VoucherPrint } from '@/components/print';
 import { useToast } from '@/components/toast';
-import type { Worker, Attendance } from '@/lib/types';
+import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense } from '@/lib/types';
 
 type Tab = 'workers' | 'attendance' | 'vouchers';
+
+const DEVELOPMENT_CATEGORIES = ['Land Preparation', 'Fencing', 'Infrastructure', 'Irrigation', 'Machinery', 'Structures', 'Other'];
 
 export function LaborModule() {
   const { data, save, remove, update, nextVoucherNo } = useStore();
@@ -92,6 +94,7 @@ export function LaborModule() {
               { key: 'worker', header: 'Worker', render: (a) => { const w = data.workers.find((x) => x.id === a.workerId); return w ? <div><div className="font-600">{w.name}</div><div className="text-xs text-neutral-500">{w.role}</div></div> : a.workerId; } },
               { key: 'status', header: 'Status', render: (a) => <StatusBadge status={a.status} /> },
               { key: 'plot', header: 'Task / Plot', render: (a) => a.taskPlot || '—' },
+              { key: 'alloc', header: 'Allocation', render: (a) => <AllocationBadge allocation={a.expenseAllocation} crops={data.crops} /> },
               { key: 'hours', header: 'Hours', align: 'right', render: (a) => a.hours },
               { key: 'amount', header: 'Amount', align: 'right', render: (a) => <span className="font-700">{LKR(a.amount)}</span>, restricted: true },
             ]}
@@ -144,6 +147,15 @@ export function LaborModule() {
     upsertRow('vouchers', v as never).catch(() => {});
     setTab('vouchers');
   }
+}
+
+function AllocationBadge({ allocation, crops }: { allocation?: ExpenseAllocation; crops: { id: string; name: string; plot: string }[] }) {
+  if (!allocation) return <span className="text-xs text-neutral-400">—</span>;
+  if (allocation.allocationType === 'CROP') {
+    const crop = crops.find((c) => c.id === allocation.cropId);
+    return <Badge tone="green"><Sprout size={11} /> {crop ? `${crop.name} · ${crop.plot}` : 'Crop'}</Badge>;
+  }
+  return <Badge tone="blue"><Hammer size={11} /> {allocation.developmentCategory || 'Farm Dev'}</Badge>;
 }
 
 function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) {
@@ -208,9 +220,13 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
 }
 
 function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => void }) {
-  const { data, save } = useStore();
+  const { data, save, update, nextVoucherNo } = useStore();
   const { toast } = useToast();
   const [f, setF] = useState<Attendance>(edit || { id: newId('at'), workerId: data.workers[0]?.id || '', date: todayISO(), status: 'Present', taskPlot: '', hours: 8, amount: 0 });
+  const [allocType, setAllocType] = useState<AllocationType | ''>(edit?.expenseAllocation?.allocationType || '');
+  const [cropId, setCropId] = useState<string>(edit?.expenseAllocation?.cropId || '');
+  const [plotId, setPlotId] = useState<string>(edit?.expenseAllocation?.plotId || '');
+  const [devCategory, setDevCategory] = useState<string>(edit?.expenseAllocation?.developmentCategory || '');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [confirmSave, setConfirmSave] = useState(false);
 
@@ -227,23 +243,97 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     const e: Record<string, boolean> = {};
     if (!f.workerId) e.workerId = true;
     if (!f.date) e.date = true;
+    if (allocType === 'CROP' && !cropId) e.cropId = true;
+    if (allocType === 'FARM_DEVELOPMENT' && !devCategory) e.devCategory = true;
     setErrors(e);
     if (Object.keys(e).length) {
-      toast('Please fill in all required fields: Worker, Date', 'error');
+      const missing = Object.keys(e).map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(', ');
+      toast(`Please fill in all required fields: ${missing}`, 'error');
       return false;
     }
     return true;
   };
 
+  const buildAllocation = (): ExpenseAllocation | undefined => {
+    if (!allocType) return undefined;
+    if (allocType === 'CROP') {
+      return { allocationType: 'CROP', cropId, plotId: plotId || cropId };
+    }
+    return { allocationType: 'FARM_DEVELOPMENT', developmentCategory: devCategory };
+  };
+
   const doSave = () => {
-    const final = recompute(f);
+    const allocation = buildAllocation();
+    const final = recompute({ ...f, expenseAllocation: allocation });
     save('attendance', final, edit ? 'Attendance updated' : 'Attendance added');
+
+    // Auto-sync: only for new entries with a positive payout and an allocation
+    if (!edit && final.amount > 0 && allocation) {
+      const worker = data.workers.find((w) => w.id === final.workerId);
+      const workerName = worker?.name || 'Worker';
+
+      if (allocation.allocationType === 'CROP') {
+        // Sync to Crop Expenses (appears in Crops P&L)
+        const crop = data.crops.find((c) => c.id === allocation.cropId);
+        const ce: CropExpense = {
+          id: newId('ce'),
+          cropId: allocation.cropId!,
+          date: final.date,
+          category: 'Labor',
+          description: `Labor — ${workerName} (${final.hours}h)`,
+          amount: final.amount,
+        };
+        update('cropExpenses', [ce, ...data.cropExpenses]);
+        upsertRow('cropExpenses', ce as never).catch(() => {});
+
+        // Also create a voucher for the labor payment
+        const v = {
+          id: newId('vo'),
+          voucherNo: nextVoucherNo(),
+          date: final.date,
+          kind: 'Payment' as const,
+          party: workerName,
+          description: `Labor — ${crop?.name || 'Crop'} (${final.hours}h)`,
+          amount: final.amount,
+          reference: `LABOR-${final.id}`,
+        };
+        update('vouchers', [v, ...data.vouchers]);
+        upsertRow('vouchers', v as never).catch(() => {});
+      } else {
+        // Sync to Finance Expense Log as Farm Development
+        const exp: Expense = {
+          id: newId('ex'),
+          date: final.date,
+          class: 'Seasonal Crop',
+          category: allocation.developmentCategory || 'Farm Development',
+          description: `Labor — ${workerName} (${final.hours}h) — Farm Development`,
+          amount: final.amount,
+          reference: `LABOR-${final.id}`,
+        };
+        update('expenses', [exp, ...data.expenses]);
+        upsertRow('expenses', exp as never).catch(() => {});
+
+        const v = {
+          id: newId('vo'),
+          voucherNo: nextVoucherNo(),
+          date: final.date,
+          kind: 'Payment' as const,
+          party: workerName,
+          description: `Labor — ${allocation.developmentCategory || 'Farm Dev'} (${final.hours}h)`,
+          amount: final.amount,
+          reference: `LABOR-${final.id}`,
+        };
+        update('vouchers', [v, ...data.vouchers]);
+        upsertRow('vouchers', v as never).catch(() => {});
+      }
+    }
+
     setConfirmSave(false);
     onClose();
   };
 
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit attendance' : 'Add attendance'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit attendance' : 'Mark Attendance / Add Daily Work'} size="lg">
       <div className="grid sm:grid-cols-2 gap-3">
         <Select label="Worker *" value={f.workerId} error={errors.workerId} onChange={(e) => setF({ ...f, workerId: e.target.value })}>
           {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name} — {w.type}</option>)}
@@ -256,6 +346,58 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         <Input label="Hours" type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: +e.target.value })} />
         <div className="flex items-end"><div className="w-full p-3 rounded-xl bg-primary-50 text-sm">Computed payout: <strong className="text-primary-700">{LKR(recompute(f).amount)}</strong></div></div>
       </div>
+
+      {/* Expense Allocation Section */}
+      <div className="mt-5 pt-4 border-t border-neutral-200">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-5 rounded-full bg-primary-600" />
+          <h4 className="font-display text-sm font-700 text-neutral-900">Expense Allocation</h4>
+          <span className="text-xs text-neutral-500">වියදම් වර්ගය</span>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <Select
+            label="Allocation Type (වියදම් වර්ගය) *"
+            value={allocType}
+            onChange={(e) => { setAllocType(e.target.value as AllocationType | ''); setCropId(''); setPlotId(''); setDevCategory(''); }}
+          >
+            <option value="">— Select allocation —</option>
+            <option value="CROP">Crop Specific (වගා සෘජු වියදම්)</option>
+            <option value="FARM_DEVELOPMENT">Farm Development (ගොවිපල සංවර්ධන)</option>
+          </Select>
+
+          {allocType === 'CROP' && (
+            <>
+              <Select label="Crop (බෝගය) *" value={cropId} error={errors.cropId} onChange={(e) => { setCropId(e.target.value); const c = data.crops.find((x) => x.id === e.target.value); setPlotId(c?.plot || ''); }}>
+                <option value="">— Select crop —</option>
+                {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
+              </Select>
+              <Select label="Plot (කොටස)" value={plotId} onChange={(e) => setPlotId(e.target.value)}>
+                <option value="">— Select plot —</option>
+                {data.crops.map((c) => <option key={c.id} value={c.plot}>{c.plot}</option>)}
+              </Select>
+            </>
+          )}
+
+          {allocType === 'FARM_DEVELOPMENT' && (
+            <Select label="Development Category (සංවර්ධන වර්ගය) *" value={devCategory} error={errors.devCategory} onChange={(e) => setDevCategory(e.target.value)}>
+              <option value="">— Select category —</option>
+              {DEVELOPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </Select>
+          )}
+        </div>
+
+        {allocType && (
+          <div className="mt-3 p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-600">
+            {allocType === 'CROP' ? (
+              <>Wage will be added to the selected crop's <strong>Labor expense</strong> in Crop P&L and a payment voucher will be created.</>
+            ) : (
+              <>Wage will be logged as a <strong>Farm Development expense</strong> in the Finance Expense Log and a payment voucher will be created.</>
+            )}
+          </div>
+        )}
+      </div>
+
       <div className="flex justify-end gap-2 mt-5">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>

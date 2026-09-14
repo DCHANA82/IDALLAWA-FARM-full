@@ -102,6 +102,15 @@ export interface Worker {
   dailyWage: number;       // casual
 }
 
+export type AllocationType = 'CROP' | 'FARM_DEVELOPMENT';
+
+export interface ExpenseAllocation {
+  allocationType: AllocationType;
+  cropId?: string;              // required when allocationType === 'CROP'
+  plotId?: string;              // required when allocationType === 'CROP'
+  developmentCategory?: string; // required when allocationType === 'FARM_DEVELOPMENT'
+}
+
 export interface Attendance {
   id: string;
   workerId: string;
@@ -110,6 +119,7 @@ export interface Attendance {
   taskPlot?: string;       // plot/nursery allocation
   hours: number;
   amount: number;          // computed payout
+  expenseAllocation?: ExpenseAllocation;
 }
 
 export interface Voucher {

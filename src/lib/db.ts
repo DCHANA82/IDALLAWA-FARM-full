@@ -76,10 +76,37 @@ function fromWorker(w: Worker): Record<string, unknown> {
 }
 
 function toAttendance(r: Record<string, unknown>): Attendance {
-  return { id: r.id as string, workerId: r.worker_id as string, date: r.date as string, status: r.status as Attendance['status'], taskPlot: (r.task_plot as string) || undefined, hours: Number(r.hours), amount: Number(r.amount) };
+  const allocType = (r.allocation_type as string) || undefined;
+  return {
+    id: r.id as string,
+    workerId: r.worker_id as string,
+    date: r.date as string,
+    status: r.status as Attendance['status'],
+    taskPlot: (r.task_plot as string) || undefined,
+    hours: Number(r.hours),
+    amount: Number(r.amount),
+    expenseAllocation: allocType ? {
+      allocationType: allocType as 'CROP' | 'FARM_DEVELOPMENT',
+      cropId: (r.crop_id as string) || undefined,
+      plotId: (r.plot_id as string) || undefined,
+      developmentCategory: (r.development_category as string) || undefined,
+    } : undefined,
+  };
 }
 function fromAttendance(a: Attendance): Record<string, unknown> {
-  return { id: a.id, worker_id: a.workerId, date: a.date, status: a.status, task_plot: a.taskPlot || '', hours: a.hours, amount: a.amount };
+  return {
+    id: a.id,
+    worker_id: a.workerId,
+    date: a.date,
+    status: a.status,
+    task_plot: a.taskPlot || '',
+    hours: a.hours,
+    amount: a.amount,
+    allocation_type: a.expenseAllocation?.allocationType || null,
+    crop_id: a.expenseAllocation?.cropId || null,
+    plot_id: a.expenseAllocation?.plotId || null,
+    development_category: a.expenseAllocation?.developmentCategory || null,
+  };
 }
 
 function toVoucher(r: Record<string, unknown>): Voucher {
