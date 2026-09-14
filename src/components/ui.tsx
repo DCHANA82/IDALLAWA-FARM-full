@@ -1,6 +1,6 @@
 import type { ReactNode, ButtonHTMLAttributes } from 'react';
-import { useEffect, useRef } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { X, AlertTriangle, ChevronUp, ChevronDown } from 'lucide-react';
 
 export function Card({ children, className = '', ...rest }: { children: ReactNode; className?: string } & React.HTMLAttributes<HTMLDivElement>) {
   return (
@@ -96,6 +96,16 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 
 export function Modal({ open, onClose, title, children, footer, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [canScrollUp, setCanScrollUp] = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 2);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -105,6 +115,7 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
     const timer = setTimeout(() => {
       const container = bodyRef.current;
       if (!container) return;
+      updateScrollState();
       const firstInput = container.querySelector<HTMLElement>('input, select, textarea, button');
       firstInput?.focus();
     }, 50);
@@ -113,7 +124,60 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
       document.body.style.overflow = prevOverflow;
       clearTimeout(timer);
     };
-  }, [open, onClose]);
+  }, [open, onClose, updateScrollState]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = bodyRef.current;
+    if (!el) return;
+    const handler = () => updateScrollState();
+    el.addEventListener('scroll', handler);
+    const ro = new ResizeObserver(() => updateScrollState());
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', handler);
+      ro.disconnect();
+    };
+  }, [open, updateScrollState]);
+
+  const scrollBy = useCallback((delta: number) => {
+    bodyRef.current?.scrollBy({ top: delta, behavior: 'smooth' });
+  }, []);
+
+  const handleBodyKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const tag = (e.target as HTMLElement)?.tagName;
+    const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (e.target as HTMLElement)?.isContentEditable;
+    if (isTyping) return;
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        el.scrollBy({ top: 60, behavior: 'smooth' });
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        el.scrollBy({ top: -60, behavior: 'smooth' });
+        break;
+      case 'PageDown':
+        e.preventDefault();
+        el.scrollBy({ top: el.clientHeight * 0.85, behavior: 'smooth' });
+        break;
+      case 'PageUp':
+        e.preventDefault();
+        el.scrollBy({ top: -el.clientHeight * 0.85, behavior: 'smooth' });
+        break;
+      case 'Home':
+        e.preventDefault();
+        el.scrollTo({ top: 0, behavior: 'smooth' });
+        break;
+      case 'End':
+        e.preventDefault();
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+        break;
+    }
+  }, []);
+
   if (!open) return null;
   const sizes: Record<string, string> = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
@@ -145,17 +209,75 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
             <X size={18} />
           </button>
         </div>
-        <div
-          ref={bodyRef}
-          className="px-5 py-4"
-          style={{
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            WebkitOverflowScrolling: 'touch',
-            minHeight: 0,
-          }}
-        >
-          {children}
+        <div style={{ position: 'relative', minHeight: 0, overflow: 'hidden' }}>
+          {canScrollUp && (
+            <button
+              onClick={() => scrollBy(-200)}
+              aria-label="Scroll up"
+              style={{
+                position: 'absolute',
+                top: 4,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 10,
+                width: 36,
+                height: 28,
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                background: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#525252',
+              }}
+            >
+              <ChevronUp size={18} />
+            </button>
+          )}
+          <div
+            ref={bodyRef}
+            tabIndex={0}
+            className="modal-scroll-body px-5 py-4"
+            onScroll={updateScrollState}
+            onKeyDown={handleBodyKeyDown}
+            style={{
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch',
+              minHeight: 0,
+              height: '100%',
+            }}
+          >
+            {children}
+          </div>
+          {canScrollDown && (
+            <button
+              onClick={() => scrollBy(200)}
+              aria-label="Scroll down"
+              style={{
+                position: 'absolute',
+                bottom: 4,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 10,
+                width: 36,
+                height: 28,
+                borderRadius: 8,
+                border: '1px solid #e5e7eb',
+                background: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 -2px 6px rgba(0,0,0,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: '#525252',
+              }}
+            >
+              <ChevronDown size={18} />
+            </button>
+          )}
         </div>
         {footer && (
           <div
