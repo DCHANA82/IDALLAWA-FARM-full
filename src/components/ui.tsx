@@ -94,7 +94,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-export function Modal({ open, onClose, title, children, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
+export function Modal({ open, onClose, title, children, footer, size = 'md' }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -111,16 +111,23 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   if (!open) return null;
   const sizes: Record<string, string> = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-card-lg my-8 animate-slide-up max-h-[80vh] flex flex-col`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
+    <div className="fixed inset-0 z-50 bg-neutral-950/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-6 flex items-start sm:items-center justify-center min-h-screen" role="dialog" aria-modal="true" onClick={onClose}>
+      <div
+        className={`relative bg-white rounded-2xl shadow-card-lg w-full ${sizes[size]} max-h-[85vh] flex flex-col my-auto animate-slide-up`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0 bg-neutral-50/50 rounded-t-2xl">
           <h3 className="font-display text-base font-700 text-neutral-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" aria-label="Close">
             <X size={18} />
           </button>
         </div>
         <div ref={bodyRef} className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
+        {footer && (
+          <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 shrink-0 flex justify-end gap-2 rounded-b-2xl">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -165,9 +172,8 @@ export function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg animate-slide-up max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-[60] bg-neutral-950/40 backdrop-blur-sm overflow-y-auto p-4 flex items-center justify-center min-h-screen" role="dialog" aria-modal="true" onClick={onClose}>
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg max-h-[80vh] flex flex-col my-auto animate-slide-up" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
           <div className="flex items-start gap-3">
             <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-error-100 text-error-600' : 'bg-accent-100 text-accent-600'}`}>
