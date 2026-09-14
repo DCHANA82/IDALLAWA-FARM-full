@@ -223,7 +223,7 @@ function BatchModal({ edit, onClose }: { edit?: NurseryBatch; onClose: () => voi
           <option>Growing</option><option>Ready</option><option>Sold Out</option><option>Transferred</option>
         </Select>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save changes' : 'Create batch'}</Button>
       </div>
@@ -278,7 +278,7 @@ function CostModal({ edit, onClose }: { edit?: NurseryCost; onClose: () => void 
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
@@ -344,7 +344,7 @@ function SaleModal({ edit, onClose }: { edit?: NurserySale; onClose: () => void 
         <span className="text-neutral-600">Sale total: <strong className="text-primary-700">{LKR(f.qty * f.unitPrice)}</strong></span>
         {batch && <span className="text-xs text-neutral-500">Batch has {batch.qtyUnits} {batch.unitType}</span>}
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Record sale + voucher'}</Button>
       </div>
@@ -410,7 +410,7 @@ function TransferModal({ edit, onClose }: { edit?: NurseryTransfer; onClose: () 
       <div className="mt-4 p-3 rounded-xl bg-accent-50 text-sm">
         Nursery credit: <strong className="text-accent-700">{LKR(f.qty * f.unitValue)}</strong> · This amount is also added as a production expense to the destination crop plot.
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Record transfer'}</Button>
       </div>

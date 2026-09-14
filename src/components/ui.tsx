@@ -113,14 +113,14 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
       <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-card-lg my-8 animate-slide-up`}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200">
+      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-card-lg my-8 animate-slide-up max-h-[88vh] flex flex-col`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
           <h3 className="font-display text-base font-700 text-neutral-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" aria-label="Close">
             <X size={18} />
           </button>
         </div>
-        <div ref={bodyRef} className="px-5 py-4">{children}</div>
+        <div ref={bodyRef} className="px-5 py-4 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

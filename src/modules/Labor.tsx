@@ -342,7 +342,7 @@ function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfir
           <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.netPayable)}</span>
         </div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={onConfirm}>Generate Voucher</Button>
       </div>
@@ -426,7 +426,7 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
           <Input label="Allowances (Rs.) දීමනා" type="number" value={f.allowances} onChange={(e) => setF({ ...f, allowances: +e.target.value })} />
         )}
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
@@ -761,7 +761,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         )}
       </div>
 
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>

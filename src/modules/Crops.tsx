@@ -250,7 +250,7 @@ function CropModal({ edit, onClose }: { edit?: Crop; onClose: () => void }) {
           </Select>
         )}
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
@@ -311,7 +311,7 @@ function ExpenseModal({ edit, onClose }: { edit?: CropExpense; onClose: () => vo
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
       </div>
@@ -373,7 +373,7 @@ function HarvestModal({ edit, onClose }: { edit?: CropHarvest; onClose: () => vo
         <div className="sm:col-span-2"><Input label="Buyer *" value={f.buyer} error={errors.buyer} onChange={(e) => setF({ ...f, buyer: e.target.value })} /></div>
       </div>
       <div className="mt-4 p-3 rounded-xl bg-success-50 text-sm">Revenue: <strong className="text-success-700">{LKR(f.quantityKg * f.unitPrice)}</strong></div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + receipt'}</Button>
       </div>

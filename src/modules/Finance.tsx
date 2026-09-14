@@ -267,7 +267,7 @@ function LedgerModal({ edit, onClose }: { edit?: LedgerEntry; onClose: () => voi
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
       </div>
@@ -331,7 +331,7 @@ function VoucherModal({ edit, onClose }: { edit?: Voucher; onClose: () => void }
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Voucher</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
@@ -396,7 +396,7 @@ function ExpenseModal({ edit, onClose }: { edit?: Expense; onClose: () => void }
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Expense</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
@@ -457,7 +457,7 @@ function DevelopmentModal({ edit, onClose }: { edit?: FarmDevelopment; onClose: 
       <div className="mt-4 p-3 rounded-xl bg-accent-50 text-sm">
         Annual Depreciation: <strong className="text-accent-700">{LKR(f.lifespanYears > 0 ? f.totalCost / f.lifespanYears : 0)}</strong>
       </div>
-      <div className="flex justify-end gap-2 mt-5">
+      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
         <Button variant="ghost" onClick={onClose}>Cancel</Button>
         <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
