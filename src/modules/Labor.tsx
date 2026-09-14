@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Fuel, Award, Calculator, Pencil, Trash2 } from 'lucide-react';
 import { useStore, newId, upsertRow } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { LKR, fmtDate, todayISO, downloadFile, toCSV } from '@/lib/format';
-import { workerPayout, payrollMonthTotals } from '@/lib/calc';
+import { workerPayout, workerPayoutBreakdown, payrollMonthTotals } from '@/lib/calc';
 import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmDialog } from '@/components/ui';
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable, StatusBadge } from '@/components/DataTable';
@@ -12,7 +12,7 @@ import { printContent, VoucherPrint } from '@/components/print';
 import { useToast } from '@/components/toast';
 import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense } from '@/lib/types';
 
-type Tab = 'workers' | 'attendance' | 'vouchers';
+type Tab = 'workers' | 'attendance' | 'settlement' | 'vouchers';
 
 const DEVELOPMENT_CATEGORIES = ['Land Preparation', 'Fencing', 'Infrastructure', 'Irrigation', 'Machinery', 'Structures', 'Other'];
 
@@ -23,8 +23,9 @@ export function LaborModule() {
   const [tab, setTab] = useState<Tab>('workers');
   const [modal, setModal] = useState<null | { kind: 'worker' | 'attendance'; edit?: Worker | Attendance }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'workers' | 'attendance'; id: string; name: string }>(null);
+  const [settlementWorkerId, setSettlementWorkerId] = useState<string>('');
   const monthISO = new Date().toISOString().slice(0, 7);
-  const [payMonth] = useState(monthISO);
+  const [payMonth, setPayMonth] = useState(monthISO);
   const pay = payrollMonthTotals(data, payMonth);
 
   const permanent = data.workers.filter((w) => w.type === 'Permanent');
@@ -49,6 +50,7 @@ export function LaborModule() {
         tabs={[
           { key: 'workers' as Tab, label: 'Workers' },
           { key: 'attendance' as Tab, label: 'Attendance & Tasks' },
+          { key: 'settlement' as Tab, label: 'Month-End Settlement' },
           { key: 'vouchers' as Tab, label: 'Payment Vouchers' },
         ]}
         value={tab}
@@ -95,11 +97,16 @@ export function LaborModule() {
               { key: 'status', header: 'Status', render: (a) => <StatusBadge status={a.status} /> },
               { key: 'plot', header: 'Task / Plot', render: (a) => a.taskPlot || '—' },
               { key: 'alloc', header: 'Allocation', render: (a) => <AllocationBadge allocation={a.expenseAllocation} crops={data.crops} /> },
+              { key: 'allow', header: 'Allowances', align: 'right', render: (a) => { const total = (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0); return total > 0 ? <span className="text-primary-700 font-600">{LKR(total)}</span> : <span className="text-neutral-400">—</span>; } },
               { key: 'hours', header: 'Hours', align: 'right', render: (a) => a.hours },
-              { key: 'amount', header: 'Amount', align: 'right', render: (a) => <span className="font-700">{LKR(a.amount)}</span>, restricted: true },
+              { key: 'amount', header: 'Amount', align: 'right', render: (a) => <span className="font-700">{LKR(a.amount + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0))}</span>, restricted: true },
             ]}
           />
         </Card>
+      )}
+
+      {tab === 'settlement' && (
+        <SettlementTab payMonth={payMonth} setPayMonth={setPayMonth} settlementWorkerId={settlementWorkerId} setSettlementWorkerId={setSettlementWorkerId} />
       )}
 
       {tab === 'vouchers' && (
@@ -147,6 +154,165 @@ export function LaborModule() {
     upsertRow('vouchers', v as never).catch(() => {});
     setTab('vouchers');
   }
+}
+
+function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlementWorkerId }: {
+  payMonth: string;
+  setPayMonth: (m: string) => void;
+  settlementWorkerId: string;
+  setSettlementWorkerId: (id: string) => void;
+}) {
+  const { data, update, nextVoucherNo } = useStore();
+  const { isAdmin } = useAuth();
+  const { toast } = useToast();
+  const [settlementModal, setSettlementModal] = useState(false);
+
+  const worker = data.workers.find((w) => w.id === settlementWorkerId);
+  const breakdown = worker ? workerPayoutBreakdown(data, worker, payMonth) : null;
+  const monthAttendance = worker ? data.attendance.filter((a) => a.workerId === worker.id && a.date.startsWith(payMonth)) : [];
+  const presentDays = monthAttendance.filter((a) => a.status !== 'Absent').length;
+
+  const allWorkersBreakdown = data.workers.map((w) => ({
+    worker: w,
+    ...workerPayoutBreakdown(data, w, payMonth),
+    presentDays: data.attendance.filter((a) => a.workerId === w.id && a.date.startsWith(payMonth) && a.status !== 'Absent').length,
+  }));
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-5">
+        <SectionTitle title="Month-End Settlement" subtitle="Calculate net payout with allowances and bonuses" icon={<Calculator size={18} />}
+          action={
+            <div className="flex gap-2 items-center">
+              <Input label="" type="month" value={payMonth} onChange={(e) => setPayMonth(e.target.value)} className="w-40" />
+            </div>
+          } />
+
+        <div className="grid sm:grid-cols-2 gap-3 mb-4">
+          <Select label="Select Worker (සේවකයා)" value={settlementWorkerId} onChange={(e) => setSettlementWorkerId(e.target.value)}>
+            <option value="">— Select worker —</option>
+            {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name} — {w.type}</option>)}
+          </Select>
+          {worker && (
+            <div className="flex items-end">
+              <div className="w-full p-3 rounded-xl bg-primary-50 text-sm">
+                Present days: <strong className="text-primary-700">{presentDays}</strong> · Type: <strong className="text-primary-700">{worker.type}</strong>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {worker && breakdown && (
+          <div className="rounded-xl border border-neutral-200 overflow-hidden">
+            <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200">
+              <div className="font-display font-700 text-neutral-900">{worker.name}</div>
+              <div className="text-xs text-neutral-500">{worker.role} · {payMonth}</div>
+            </div>
+            <div className="divide-y divide-neutral-100">
+              <BreakdownRow label="Base Salary (මූලික වැටුප)" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
+              <BreakdownRow label="Daily Wages (දෛනික වැටුප)" value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
+              <BreakdownRow label="Fuel / Transport (ඉන්ධන/ප්‍රවාහන දීමනා)" value={breakdown.fuel} icon={<Fuel size={14} />} />
+              <BreakdownRow label="Attendance Bonus (සහභාගි දීමනා)" value={breakdown.attendanceBonus} icon={<Award size={14} />} />
+              <BreakdownRow label="Other Allowances (වෙනත් දීමනා)" value={breakdown.other} icon={<Plus size={14} />} />
+              <div className="px-4 py-3 bg-primary-50 flex items-center justify-between">
+                <span className="font-display font-700 text-primary-800">Net Payout (ශුද්ධ ගෙවීම)</span>
+                <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.total)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!worker && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {allWorkersBreakdown.map(({ worker: w, total, presentDays: pd }) => (
+              <div key={w.id} className="p-3 rounded-xl border border-neutral-200 hover:border-primary-300 hover:bg-primary-50/30 transition cursor-pointer" onClick={() => setSettlementWorkerId(w.id)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-600 text-neutral-900">{w.name}</div>
+                    <div className="text-xs text-neutral-500">{w.type} · {pd} days present</div>
+                  </div>
+                  <div className="font-700 text-primary-700">{LKR(total)}</div>
+                </div>
+              </div>
+            ))}
+            {data.workers.length === 0 && <div className="text-neutral-400 text-sm">No workers added yet.</div>}
+          </div>
+        )}
+
+        {worker && breakdown && isAdmin && breakdown.total > 0 && (
+          <div className="flex justify-end gap-2 mt-4">
+            <Button icon={<Printer size={14} />} onClick={() => setSettlementModal(true)}>Generate Settlement Voucher</Button>
+          </div>
+        )}
+      </Card>
+
+      {settlementModal && worker && breakdown && (
+        <SettlementVoucherModal
+          worker={worker}
+          breakdown={breakdown}
+          payMonth={payMonth}
+          onClose={() => setSettlementModal(false)}
+          onConfirm={() => {
+            const v = {
+              id: newId('vo'),
+              voucherNo: nextVoucherNo(),
+              date: todayISO(),
+              kind: 'Payroll' as const,
+              party: worker.name,
+              description: `Settlement — ${payMonth}`,
+              amount: breakdown.total,
+              reference: `SETTLE-${payMonth}-${worker.id}`,
+            };
+            update('vouchers', [v, ...data.vouchers]);
+            upsertRow('vouchers', v as never).catch(() => {});
+            toast('Settlement voucher generated', 'success');
+            setSettlementModal(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BreakdownRow({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+  return (
+    <div className="px-4 py-2.5 flex items-center justify-between">
+      <div className="flex items-center gap-2 text-sm text-neutral-700">
+        <span className="text-neutral-400">{icon}</span>
+        {label}
+      </div>
+      <span className={`font-600 ${value > 0 ? 'text-neutral-900' : 'text-neutral-400'}`}>{LKR(value)}</span>
+    </div>
+  );
+}
+
+function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfirm }: {
+  worker: Worker;
+  breakdown: { baseSalary: number; dailyWages: number; fuel: number; attendanceBonus: number; other: number; total: number };
+  payMonth: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal open onClose={onClose} title="Confirm Settlement Voucher" size="md">
+      <div className="space-y-2">
+        <div className="text-sm text-neutral-600 mb-3">Review the payout breakdown for <strong className="text-neutral-900">{worker.name}</strong> for {payMonth}.</div>
+        <BreakdownRow label="Base Salary" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
+        <BreakdownRow label="Daily Wages" value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
+        <BreakdownRow label="Fuel / Transport" value={breakdown.fuel} icon={<Fuel size={14} />} />
+        <BreakdownRow label="Attendance Bonus" value={breakdown.attendanceBonus} icon={<Award size={14} />} />
+        <BreakdownRow label="Other Allowances" value={breakdown.other} icon={<Plus size={14} />} />
+        <div className="px-4 py-3 bg-primary-50 rounded-xl flex items-center justify-between mt-3">
+          <span className="font-display font-700 text-primary-800">Net Payout</span>
+          <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.total)}</span>
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 mt-5">
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={onConfirm}>Generate Voucher</Button>
+      </div>
+    </Modal>
+  );
 }
 
 function AllocationBadge({ allocation, crops }: { allocation?: ExpenseAllocation; crops: { id: string; name: string; plot: string }[] }) {
@@ -222,11 +388,14 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
 function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => void }) {
   const { data, save, update, nextVoucherNo } = useStore();
   const { toast } = useToast();
+  const worker = data.workers.find((w) => w.id === (edit?.workerId || data.workers[0]?.id));
   const [f, setF] = useState<Attendance>(edit || { id: newId('at'), workerId: data.workers[0]?.id || '', date: todayISO(), status: 'Present', taskPlot: '', hours: 8, amount: 0 });
   const [allocType, setAllocType] = useState<AllocationType | ''>(edit?.expenseAllocation?.allocationType || '');
   const [cropId, setCropId] = useState<string>(edit?.expenseAllocation?.cropId || '');
   const [plotId, setPlotId] = useState<string>(edit?.expenseAllocation?.plotId || '');
   const [devCategory, setDevCategory] = useState<string>(edit?.expenseAllocation?.developmentCategory || '');
+  const [fuelAlloc, setFuelAlloc] = useState<'CROP' | 'OVERHEAD' | ''>(edit?.fuelAllocation || '');
+  const [fuelCropId, setFuelCropId] = useState<string>(edit?.fuelCropId || '');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [confirmSave, setConfirmSave] = useState(false);
 
@@ -235,9 +404,13 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     if (!w) return next;
     if (next.status === 'Absent') return { ...next, hours: 0, amount: 0 };
     const hrs = next.hours;
-    const amount = w.type === 'Casual' ? Math.round(w.dailyWage * (hrs / 8)) : 0;
+    const rate = next.overrideRate ?? w.dailyWage;
+    const amount = w.type === 'Casual' ? Math.round(rate * (hrs / 8)) : 0;
     return { ...next, amount };
   };
+
+  const totalAllowances = (f.fuelTransportAllowance || 0) + (f.attendanceAllowance || 0) + (f.otherAllowances || 0);
+  const totalPayout = recompute(f).amount + totalAllowances;
 
   const validate = (): boolean => {
     const e: Record<string, boolean> = {};
@@ -245,6 +418,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     if (!f.date) e.date = true;
     if (allocType === 'CROP' && !cropId) e.cropId = true;
     if (allocType === 'FARM_DEVELOPMENT' && !devCategory) e.devCategory = true;
+    if (fuelAlloc === 'CROP' && !fuelCropId) e.fuelCropId = true;
     setErrors(e);
     if (Object.keys(e).length) {
       const missing = Object.keys(e).map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(', ');
@@ -264,51 +438,48 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
 
   const doSave = () => {
     const allocation = buildAllocation();
-    const final = recompute({ ...f, expenseAllocation: allocation });
-    save('attendance', final, edit ? 'Attendance updated' : 'Attendance added');
+    const finalAttendance = recompute({ ...f, expenseAllocation: allocation });
+    save('attendance', finalAttendance, edit ? 'Attendance updated' : 'Attendance added');
 
     // Auto-sync: only for new entries with a positive payout and an allocation
-    if (!edit && final.amount > 0 && allocation) {
-      const worker = data.workers.find((w) => w.id === final.workerId);
-      const workerName = worker?.name || 'Worker';
+    if (!edit && finalAttendance.amount > 0 && allocation) {
+      const w = data.workers.find((x) => x.id === finalAttendance.workerId);
+      const workerName = w?.name || 'Worker';
 
       if (allocation.allocationType === 'CROP') {
-        // Sync to Crop Expenses (appears in Crops P&L)
         const crop = data.crops.find((c) => c.id === allocation.cropId);
         const ce: CropExpense = {
           id: newId('ce'),
           cropId: allocation.cropId!,
-          date: final.date,
+          date: finalAttendance.date,
           category: 'Labor',
-          description: `Labor — ${workerName} (${final.hours}h)`,
-          amount: final.amount,
+          description: `Labor — ${workerName} (${finalAttendance.hours}h)`,
+          amount: finalAttendance.amount,
         };
         update('cropExpenses', [ce, ...data.cropExpenses]);
         upsertRow('cropExpenses', ce as never).catch(() => {});
 
-        // Also create a voucher for the labor payment
         const v = {
           id: newId('vo'),
           voucherNo: nextVoucherNo(),
-          date: final.date,
+          date: finalAttendance.date,
           kind: 'Payment' as const,
           party: workerName,
-          description: `Labor — ${crop?.name || 'Crop'} (${final.hours}h)`,
-          amount: final.amount,
-          reference: `LABOR-${final.id}`,
+          description: `Labor — ${crop?.name || 'Crop'} (${finalAttendance.hours}h)`,
+          amount: finalAttendance.amount,
+          reference: `LABOR-${finalAttendance.id}`,
         };
         update('vouchers', [v, ...data.vouchers]);
         upsertRow('vouchers', v as never).catch(() => {});
       } else {
-        // Sync to Finance Expense Log as Farm Development
         const exp: Expense = {
           id: newId('ex'),
-          date: final.date,
+          date: finalAttendance.date,
           class: 'Seasonal Crop',
           category: allocation.developmentCategory || 'Farm Development',
-          description: `Labor — ${workerName} (${final.hours}h) — Farm Development`,
-          amount: final.amount,
-          reference: `LABOR-${final.id}`,
+          description: `Labor — ${workerName} (${finalAttendance.hours}h) — Farm Development`,
+          amount: finalAttendance.amount,
+          reference: `LABOR-${finalAttendance.id}`,
         };
         update('expenses', [exp, ...data.expenses]);
         upsertRow('expenses', exp as never).catch(() => {});
@@ -316,15 +487,47 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         const v = {
           id: newId('vo'),
           voucherNo: nextVoucherNo(),
-          date: final.date,
+          date: finalAttendance.date,
           kind: 'Payment' as const,
           party: workerName,
-          description: `Labor — ${allocation.developmentCategory || 'Farm Dev'} (${final.hours}h)`,
-          amount: final.amount,
-          reference: `LABOR-${final.id}`,
+          description: `Labor — ${allocation.developmentCategory || 'Farm Dev'} (${finalAttendance.hours}h)`,
+          amount: finalAttendance.amount,
+          reference: `LABOR-${finalAttendance.id}`,
         };
         update('vouchers', [v, ...data.vouchers]);
         upsertRow('vouchers', v as never).catch(() => {});
+      }
+    }
+
+    // Sync fuel/transport allowance as a separate expense
+    if (!edit && (f.fuelTransportAllowance || 0) > 0) {
+      const w = data.workers.find((x) => x.id === f.workerId);
+      const workerName = w?.name || 'Worker';
+
+      if (fuelAlloc === 'CROP' && fuelCropId) {
+        const crop = data.crops.find((c) => c.id === fuelCropId);
+        const ce: CropExpense = {
+          id: newId('ce'),
+          cropId: fuelCropId,
+          date: f.date,
+          category: 'Fuel/Transport',
+          description: `Fuel/Transport — ${workerName} — ${crop?.name || ''}`,
+          amount: f.fuelTransportAllowance!,
+        };
+        update('cropExpenses', [ce, ...data.cropExpenses]);
+        upsertRow('cropExpenses', ce as never).catch(() => {});
+      } else {
+        const exp: Expense = {
+          id: newId('ex'),
+          date: f.date,
+          class: 'Fixed Overhead',
+          category: 'Fuel/Transport',
+          description: `Fuel/Transport — ${workerName}`,
+          amount: f.fuelTransportAllowance!,
+          reference: `FUEL-${f.id}`,
+        };
+        update('expenses', [exp, ...data.expenses]);
+        upsertRow('expenses', exp as never).catch(() => {});
       }
     }
 
@@ -344,7 +547,82 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         </Select>
         <Input label="Task / Plot" value={f.taskPlot || ''} onChange={(e) => setF({ ...f, taskPlot: e.target.value })} placeholder="Plot A1 / Nursery / Harvest" />
         <Input label="Hours" type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: +e.target.value })} />
-        <div className="flex items-end"><div className="w-full p-3 rounded-xl bg-primary-50 text-sm">Computed payout: <strong className="text-primary-700">{LKR(recompute(f).amount)}</strong></div></div>
+        {worker?.type === 'Casual' && (
+          <Input
+            label="Override Daily Rate (අභිබවා දෛනික අනුපාතය)"
+            type="number"
+            value={f.overrideRate ?? ''}
+            onChange={(e) => setF({ ...f, overrideRate: e.target.value ? +e.target.value : undefined })}
+            placeholder={`Default: ${worker?.dailyWage || 0}`}
+          />
+        )}
+        {worker?.type === 'Permanent' && (
+          <Input
+            label="Override Monthly Salary (අභිබවා මාසික වැටුප)"
+            type="number"
+            value={f.overrideRate ?? ''}
+            onChange={(e) => setF({ ...f, overrideRate: e.target.value ? +e.target.value : undefined })}
+            placeholder={`Default: ${worker?.monthlyBasic || 0}`}
+          />
+        )}
+        <div className="flex items-end"><div className="w-full p-3 rounded-xl bg-primary-50 text-sm">Base payout: <strong className="text-primary-700">{LKR(recompute(f).amount)}</strong></div></div>
+      </div>
+
+      {/* Allowances Section */}
+      <div className="mt-5 pt-4 border-t border-neutral-200">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-1 h-5 rounded-full bg-primary-600" />
+          <h4 className="font-display text-sm font-700 text-neutral-900">Allowances</h4>
+          <span className="text-xs text-neutral-500">දීමනා</span>
+        </div>
+
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Input
+            label="Fuel/Transport (ඉන්ධන/ප්‍රවාහන)"
+            type="number"
+            value={f.fuelTransportAllowance ?? 0}
+            onChange={(e) => setF({ ...f, fuelTransportAllowance: +e.target.value })}
+          />
+          <Input
+            label="Attendance Bonus (සහභාගි දීමනා)"
+            type="number"
+            value={f.attendanceAllowance ?? 0}
+            onChange={(e) => setF({ ...f, attendanceAllowance: +e.target.value })}
+          />
+          <Input
+            label="Other (වෙනත්)"
+            type="number"
+            value={f.otherAllowances ?? 0}
+            onChange={(e) => setF({ ...f, otherAllowances: +e.target.value })}
+          />
+        </div>
+
+        {(f.fuelTransportAllowance || 0) > 0 && (
+          <div className="grid sm:grid-cols-2 gap-3 mt-3">
+            <Select
+              label="Fuel Allocation (ඉන්ධන වෙන් කිරීම)"
+              value={fuelAlloc}
+              onChange={(e) => { setFuelAlloc(e.target.value as 'CROP' | 'OVERHEAD' | ''); setFuelCropId(''); }}
+            >
+              <option value="">— General (no specific crop) —</option>
+              <option value="CROP">Link to Crop (වගාවට)</option>
+              <option value="OVERHEAD">General Farm Overhead (සාමාන්‍ය ප්‍රකාශ)</option>
+            </Select>
+            {fuelAlloc === 'CROP' && (
+              <Select label="Link to Crop (බෝගය) *" value={fuelCropId} error={errors.fuelCropId} onChange={(e) => setFuelCropId(e.target.value)}>
+                <option value="">— Select crop —</option>
+                {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
+              </Select>
+            )}
+          </div>
+        )}
+
+        {totalAllowances > 0 && (
+          <div className="mt-3 p-3 rounded-xl bg-success-50 border border-success-200 text-sm">
+            Total Allowances: <strong className="text-success-700">{LKR(totalAllowances)}</strong>
+            {' · '}Total Payout: <strong className="text-primary-700">{LKR(totalPayout)}</strong>
+          </div>
+        )}
       </div>
 
       {/* Expense Allocation Section */}

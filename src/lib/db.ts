@@ -77,6 +77,7 @@ function fromWorker(w: Worker): Record<string, unknown> {
 
 function toAttendance(r: Record<string, unknown>): Attendance {
   const allocType = (r.allocation_type as string) || undefined;
+  const fuelAlloc = (r.fuel_allocation as string) || undefined;
   return {
     id: r.id as string,
     workerId: r.worker_id as string,
@@ -85,6 +86,12 @@ function toAttendance(r: Record<string, unknown>): Attendance {
     taskPlot: (r.task_plot as string) || undefined,
     hours: Number(r.hours),
     amount: Number(r.amount),
+    overrideRate: r.override_rate != null ? Number(r.override_rate) : undefined,
+    fuelTransportAllowance: Number(r.fuel_transport_allowance) || 0,
+    attendanceAllowance: Number(r.attendance_allowance) || 0,
+    otherAllowances: Number(r.other_allowances) || 0,
+    fuelAllocation: fuelAlloc ? (fuelAlloc as 'CROP' | 'OVERHEAD') : undefined,
+    fuelCropId: (r.fuel_crop_id as string) || undefined,
     expenseAllocation: allocType ? {
       allocationType: allocType as 'CROP' | 'FARM_DEVELOPMENT',
       cropId: (r.crop_id as string) || undefined,
@@ -102,6 +109,12 @@ function fromAttendance(a: Attendance): Record<string, unknown> {
     task_plot: a.taskPlot || '',
     hours: a.hours,
     amount: a.amount,
+    override_rate: a.overrideRate ?? null,
+    fuel_transport_allowance: a.fuelTransportAllowance || 0,
+    attendance_allowance: a.attendanceAllowance || 0,
+    other_allowances: a.otherAllowances || 0,
+    fuel_allocation: a.fuelAllocation || null,
+    fuel_crop_id: a.fuelCropId || null,
     allocation_type: a.expenseAllocation?.allocationType || null,
     crop_id: a.expenseAllocation?.cropId || null,
     plot_id: a.expenseAllocation?.plotId || null,

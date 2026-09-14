@@ -118,7 +118,13 @@ export interface Attendance {
   status: 'Present' | 'Absent' | 'Half Day';
   taskPlot?: string;       // plot/nursery allocation
   hours: number;
-  amount: number;          // computed payout
+  amount: number;          // computed payout (base wage)
+  overrideRate?: number;   // override daily_rate (casual) or monthly salary (permanent) for this entry only
+  fuelTransportAllowance?: number;    // fuel / transport allowance
+  attendanceAllowance?: number;       // attendance bonus
+  otherAllowances?: number;           // any extra one-off bonus
+  fuelAllocation?: 'CROP' | 'OVERHEAD'; // link fuel/transport to crop or general overhead
+  fuelCropId?: string;                // crop to link fuel allowance (when fuelAllocation === 'CROP')
   expenseAllocation?: ExpenseAllocation;
 }
 

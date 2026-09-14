@@ -91,14 +91,40 @@ export function nurseryTotals(data: AppData) {
 }
 
 export function workerPayout(data: AppData, worker: Worker, monthISO: string): number {
+  const monthAttendance = data.attendance.filter((a) => a.workerId === worker.id && a.date.startsWith(monthISO));
   if (worker.type === 'Permanent') {
-    const days = data.attendance.filter((a) => a.workerId === worker.id && a.date.startsWith(monthISO) && a.status !== 'Absent').length;
-    const present = days > 0 ? 1 : 0; // monthly salary paid if present at all this month
-    return (worker.monthlyBasic + worker.allowances) * present;
+    const days = monthAttendance.filter((a) => a.status !== 'Absent').length;
+    const present = days > 0 ? 1 : 0;
+    const baseSalary = (worker.monthlyBasic + worker.allowances) * present;
+    const allowances = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0), 0);
+    return baseSalary + allowances;
   }
-  return data.attendance
-    .filter((a) => a.workerId === worker.id && a.date.startsWith(monthISO))
-    .reduce((s, a) => s + a.amount, 0);
+  return monthAttendance.reduce((s, a) => {
+    const rate = a.overrideRate ?? worker.dailyWage;
+    const baseWage = a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8));
+    return s + baseWage + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0);
+  }, 0);
+}
+
+export function workerPayoutBreakdown(data: AppData, worker: Worker, monthISO: string) {
+  const monthAttendance = data.attendance.filter((a) => a.workerId === worker.id && a.date.startsWith(monthISO));
+  if (worker.type === 'Permanent') {
+    const days = monthAttendance.filter((a) => a.status !== 'Absent').length;
+    const present = days > 0 ? 1 : 0;
+    const baseSalary = (worker.monthlyBasic + worker.allowances) * present;
+    const fuel = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0), 0);
+    const attendanceBonus = monthAttendance.reduce((s, a) => s + (a.attendanceAllowance || 0), 0);
+    const other = monthAttendance.reduce((s, a) => s + (a.otherAllowances || 0), 0);
+    return { baseSalary, dailyWages: 0, fuel, attendanceBonus, other, total: baseSalary + fuel + attendanceBonus + other };
+  }
+  const dailyWages = monthAttendance.reduce((s, a) => {
+    const rate = a.overrideRate ?? worker.dailyWage;
+    return s + (a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8)));
+  }, 0);
+  const fuel = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0), 0);
+  const attendanceBonus = monthAttendance.reduce((s, a) => s + (a.attendanceAllowance || 0), 0);
+  const other = monthAttendance.reduce((s, a) => s + (a.otherAllowances || 0), 0);
+  return { baseSalary: 0, dailyWages, fuel, attendanceBonus, other, total: dailyWages + fuel + attendanceBonus + other };
 }
 
 export function payrollMonthTotals(data: AppData, monthISO: string) {
