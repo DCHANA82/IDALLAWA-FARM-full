@@ -491,16 +491,20 @@ export function SettingsModule() {
         </div>
       </Card>
 
-      <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset all data?" size="sm">
-        <p className="text-sm text-neutral-700">This will permanently delete all records and start the app with empty data. This cannot be undone.</p>
-        <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
+      <Modal open={confirmReset} onClose={() => setConfirmReset(false)} title="Reset all data?" size="sm" footer={<>
           <Button variant="ghost" onClick={() => setConfirmReset(false)}>Cancel</Button>
           <Button variant="danger" onClick={doReset}>Yes, reset</Button>
-        </div>
+      </>}>
+        <p className="text-sm text-neutral-700">This will permanently delete all records and start the app with empty data. This cannot be undone.</p>
       </Modal>
 
       {/* User create/edit modal */}
-      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title={editingUser ? 'Edit User' : 'Add New User'} size="md">
+      <Modal open={userModalOpen} onClose={() => setUserModalOpen(false)} title={editingUser ? 'Edit User' : 'Add New User'} size="md" footer={<>
+            <Button variant="ghost" onClick={() => setUserModalOpen(false)}>Cancel</Button>
+            <Button onClick={submitUser} disabled={userSaving}>
+              {userSaving ? 'Saving…' : editingUser ? 'Save changes' : 'Create user'}
+            </Button>
+      </>}>
         <div className="space-y-4">
           <Input label="Full Name" value={formFullName} onChange={(e) => setFormFullName(e.target.value)} placeholder="e.g. John Silva" />
           <Input label="Username" value={formUsername} onChange={(e) => setFormUsername(e.target.value)} placeholder="e.g. jsilva" />
@@ -560,24 +564,17 @@ export function SettingsModule() {
               <p className="text-xs text-neutral-500 mt-1">Controls what this user can see and edit. Admins always have full access.</p>
             </div>
           )}
-          <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setUserModalOpen(false)}>Cancel</Button>
-            <Button onClick={submitUser} disabled={userSaving}>
-              {userSaving ? 'Saving…' : editingUser ? 'Save changes' : 'Create user'}
-            </Button>
-          </div>
         </div>
       </Modal>
 
       {/* Delete confirmation modal */}
-      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Remove user?" size="sm">
+      <Modal open={!!confirmDelete} onClose={() => setConfirmDelete(null)} title="Remove user?" size="sm" footer={<>
+          <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+          <Button variant="danger" onClick={confirmDeleteUser}>Yes, remove</Button>
+      </>}>
         <p className="text-sm text-neutral-700">
           Are you sure you want to remove <strong>{confirmDelete?.full_name}</strong> ({confirmDelete?.username})? This action cannot be undone.
         </p>
-        <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-          <Button variant="ghost" onClick={() => setConfirmDelete(null)}>Cancel</Button>
-          <Button variant="danger" onClick={confirmDeleteUser}>Yes, remove</Button>
-        </div>
       </Modal>
     </div>
   );

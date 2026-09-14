@@ -213,7 +213,10 @@ function CropModal({ edit, onClose }: { edit?: Crop; onClose: () => void }) {
     onClose();
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit crop' : 'Add crop'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit crop' : 'Add crop'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <DynamicSelect label="Crop name *" moduleName="crop_name" value={f.name} onChange={(v) => setF({ ...f, name: v })} placeholder="Select or add crop" />
         <Input label="Plot / field *" value={f.plot} error={errors.plot} onChange={(e) => setF({ ...f, plot: e.target.value })} />
@@ -249,10 +252,6 @@ function CropModal({ edit, onClose }: { edit?: Crop; onClose: () => void }) {
             <option>Active</option><option>Harvested</option><option>Abandoned</option>
           </Select>
         )}
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -301,7 +300,10 @@ function ExpenseModal({ edit, onClose }: { edit?: CropExpense; onClose: () => vo
     onClose();
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit expense' : 'Add crop expense'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit expense' : 'Add crop expense'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Select label="Crop *" value={f.cropId} error={errors.cropId} onChange={(e) => setF({ ...f, cropId: e.target.value })}>
           {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
@@ -310,10 +312,6 @@ function ExpenseModal({ edit, onClose }: { edit?: CropExpense; onClose: () => vo
         <DynamicSelect label="Category *" moduleName="crop_expense" value={f.category} onChange={(v) => setF({ ...f, category: v })} placeholder="Select or add category" />
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -362,7 +360,10 @@ function HarvestModal({ edit, onClose }: { edit?: CropHarvest; onClose: () => vo
     onClose();
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit harvest' : 'Add harvest'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit harvest' : 'Add harvest'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + receipt'}</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Select label="Crop *" value={f.cropId} error={errors.cropId} onChange={(e) => setF({ ...f, cropId: e.target.value })}>
           {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
@@ -373,10 +374,6 @@ function HarvestModal({ edit, onClose }: { edit?: CropHarvest; onClose: () => vo
         <div className="sm:col-span-2"><Input label="Buyer *" value={f.buyer} error={errors.buyer} onChange={(e) => setF({ ...f, buyer: e.target.value })} /></div>
       </div>
       <div className="mt-4 p-3 rounded-xl bg-success-50 text-sm">Revenue: <strong className="text-success-700">{LKR(f.quantityKg * f.unitPrice)}</strong></div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + receipt'}</Button>
-      </div>
       <ConfirmDialog
         open={confirmSave}
         onClose={() => setConfirmSave(false)}

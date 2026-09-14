@@ -101,17 +101,16 @@ export function DynamicSelect({ label, moduleName, value, onChange, className = 
         )}
       </label>
 
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Add New Category" size="sm">
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Add New Category" size="sm" footer={<>
+          <Button variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
+          <Button onClick={handleAddNew} disabled={saving || !newName.trim()}>
+            {saving ? 'Saving…' : 'Add category'}
+          </Button>
+      </>}>
         <div className="space-y-3">
           <Input label="Category name" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. New Category" autoFocus />
           <Input label="Description (optional)" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} placeholder="Brief description" />
           {error && <div className="text-sm text-error-600">{error}</div>}
-          <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
-            <Button onClick={handleAddNew} disabled={saving || !newName.trim()}>
-              {saving ? 'Saving…' : 'Add category'}
-            </Button>
-          </div>
         </div>
       </Modal>
     </>

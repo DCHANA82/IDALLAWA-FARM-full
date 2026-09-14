@@ -256,7 +256,10 @@ function LedgerModal({ edit, onClose }: { edit?: LedgerEntry; onClose: () => voi
     onClose();
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit ledger entry' : 'Add ledger entry'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit ledger entry' : 'Add ledger entry'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <DynamicSelect label="Account type *" moduleName="ledger_account" value={f.kind} onChange={(v) => setF({ ...f, kind: v as LedgerKind })} />
         <Select label="Direction" value={f.direction} onChange={(e) => setF({ ...f, direction: e.target.value as 'In' | 'Out' })}>
@@ -266,10 +269,6 @@ function LedgerModal({ edit, onClose }: { edit?: LedgerEntry; onClose: () => voi
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -315,7 +314,11 @@ function VoucherModal({ edit, onClose }: { edit?: Voucher; onClose: () => void }
     printVoucherSlip(<VoucherPrint voucherNo={f.voucherNo} date={fmtDate(f.date)} kind={f.kind} party={f.party} description={f.description} amount={f.amount} reference={f.reference} farmName={data.farmName} owner={data.owner} address={data.address} phone={data.phone} logo={data.logo} paymentMethod={f.paymentMethod} chequeNo={f.chequeNo} />);
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit voucher' : 'New voucher'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit voucher' : 'New voucher'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Voucher</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Input label="Voucher No." value={f.voucherNo} onChange={(e) => setF({ ...f, voucherNo: e.target.value })} />
         <Input label="Date *" type="date" value={f.date} error={errors.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
@@ -330,11 +333,6 @@ function VoucherModal({ edit, onClose }: { edit?: Voucher; onClose: () => void }
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Voucher</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -387,7 +385,11 @@ function ExpenseModal({ edit, onClose }: { edit?: Expense; onClose: () => void }
   };
 
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit expense' : 'Add expense'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit expense' : 'Add expense'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Expense</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <DynamicSelect label="Expense class *" moduleName="expense_class" value={f.class} onChange={(v) => setF({ ...f, class: v as Expense['class'] })} placeholder="Select or add class" />
         <Input label="Date *" type="date" value={f.date} error={errors.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
@@ -395,11 +397,6 @@ function ExpenseModal({ edit, onClose }: { edit?: Expense; onClose: () => void }
         <Input label="Amount (Rs.) *" type="number" value={f.amount} error={errors.amount} onChange={(e) => setF({ ...f, amount: +e.target.value })} />
         <Input label="Reference" value={f.reference || ''} onChange={(e) => setF({ ...f, reference: e.target.value })} />
         <div className="sm:col-span-2"><Input label="Description *" value={f.description} error={errors.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></div>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button variant="outline" icon={<Printer size={15} />} onClick={handlePrint}>Print Expense</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>{edit ? 'Save' : 'Save + voucher'}</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -441,7 +438,10 @@ function DevelopmentModal({ edit, onClose }: { edit?: FarmDevelopment; onClose: 
     onClose();
   };
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit development cost' : 'Add development cost'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit development cost' : 'Add development cost'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Input label="Development / Asset Name *" value={f.name} error={errors.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="e.g. Drip Irrigation, Fencing" />
         <DynamicSelect label="Category *" moduleName="development_category" value={f.category} onChange={(v) => setF({ ...f, category: v })} placeholder="Select or add category" />
@@ -456,10 +456,6 @@ function DevelopmentModal({ edit, onClose }: { edit?: FarmDevelopment; onClose: 
       </div>
       <div className="mt-4 p-3 rounded-xl bg-accent-50 text-sm">
         Annual Depreciation: <strong className="text-accent-700">{LKR(f.lifespanYears > 0 ? f.totalCost / f.lifespanYears : 0)}</strong>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}

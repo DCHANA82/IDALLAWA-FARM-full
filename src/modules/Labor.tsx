@@ -326,7 +326,10 @@ function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfir
   onConfirm: () => void;
 }) {
   return (
-    <Modal open onClose={onClose} title="Confirm Settlement Voucher" size="md">
+    <Modal open onClose={onClose} title="Confirm Settlement Voucher" size="md" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={onConfirm}>Generate Voucher</Button>
+    </>}>
       <div className="space-y-2">
         <div className="text-sm text-neutral-600 mb-3">Review the payout breakdown for <strong className="text-neutral-900">{worker.name}</strong> for {payMonth}.</div>
         <BreakdownRow label="Base Salary" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
@@ -341,10 +344,6 @@ function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfir
           <span className="font-display font-700 text-primary-800">Net Payable</span>
           <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.netPayable)}</span>
         </div>
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={onConfirm}>Generate Voucher</Button>
       </div>
     </Modal>
   );
@@ -406,7 +405,10 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
   };
 
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit worker' : 'Add worker'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit worker' : 'Add worker'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Input label="Name *" value={f.name} error={errors.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         <Input label="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
@@ -425,10 +427,6 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
         {f.employmentType === 'MONTHLY' && (
           <Input label="Allowances (Rs.) දීමනා" type="number" value={f.allowances} onChange={(e) => setF({ ...f, allowances: +e.target.value })} />
         )}
-      </div>
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
       </div>
       <ConfirmDialog
         open={confirmSave}
@@ -598,7 +596,10 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
   };
 
   return (
-    <Modal open onClose={onClose} title={edit ? 'Edit attendance' : 'Mark Attendance / Add Daily Work'} size="lg">
+    <Modal open onClose={onClose} title={edit ? 'Edit attendance' : 'Mark Attendance / Add Daily Work'} size="lg" footer={<>
+        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
+    </>}>
       <div className="grid sm:grid-cols-2 gap-3">
         <Select label="Worker *" value={f.workerId} error={errors.workerId} onChange={(e) => setF({ ...f, workerId: e.target.value })}>
           {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name} — {w.type}</option>)}
@@ -761,10 +762,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         )}
       </div>
 
-      <div className="sticky bottom-0 -mx-5 -mb-4 px-5 py-3 bg-white border-t border-neutral-200 z-10 flex justify-end gap-2">
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (validate()) setConfirmSave(true); }}>Save</Button>
-      </div>
       <ConfirmDialog
         open={confirmSave}
         onClose={() => setConfirmSave(false)}
