@@ -126,11 +126,20 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
     >
       <div className="absolute inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" />
       <div
-        className={`relative bg-white rounded-2xl shadow-card-lg w-full ${sizes[size]} flex flex-col animate-slide-up`}
-        style={{ maxHeight: 'calc(100dvh - 32px)', overflow: 'hidden' }}
+        className={`relative bg-white rounded-2xl shadow-card-lg w-full ${sizes[size]} animate-slide-up`}
+        style={{
+          display: 'grid',
+          gridTemplateRows: 'auto minmax(0, 1fr) auto',
+          height: 'min(720px, calc(100dvh - 32px))',
+          maxHeight: 'calc(100dvh - 32px)',
+          overflow: 'hidden',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-2xl" style={{ flexShrink: 0 }}>
+        <div
+          className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-2xl"
+          style={{ overflow: 'hidden' }}
+        >
           <h3 className="font-display text-base font-700 text-neutral-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" aria-label="Close">
             <X size={18} />
@@ -138,16 +147,25 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
         </div>
         <div
           ref={bodyRef}
-          className="px-5 py-4 flex-1 min-h-0"
-          style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}
+          className="px-5 py-4"
+          style={{
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            minHeight: 0,
+          }}
         >
           {children}
         </div>
         {footer && (
-          <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 flex justify-end gap-2 rounded-b-2xl" style={{ flexShrink: 0 }}>
+          <div
+            className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 flex justify-end gap-2 rounded-b-2xl"
+            style={{ overflow: 'hidden' }}
+          >
             {footer}
           </div>
         )}
+        {!footer && <div style={{ minHeight: 0 }} />}
       </div>
     </div>
   );
@@ -201,13 +219,24 @@ export function ConfirmDialog({
     >
       <div className="absolute inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" />
       <div
-        className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg flex flex-col animate-slide-up"
-        style={{ maxHeight: 'calc(100dvh - 32px)', overflow: 'hidden' }}
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg animate-slide-up"
+        style={{
+          display: 'grid',
+          gridTemplateRows: 'auto minmax(0, 1fr) auto',
+          maxHeight: 'calc(100dvh - 32px)',
+          overflow: 'hidden',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div style={{ minHeight: 0 }} />
         <div
-          className="px-5 py-4 flex-1 min-h-0"
-          style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}
+          className="px-5 py-4"
+          style={{
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            minHeight: 0,
+          }}
         >
           <div className="flex items-start gap-3">
             <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-error-100 text-error-600' : 'bg-accent-100 text-accent-600'}`}>
@@ -223,6 +252,7 @@ export function ConfirmDialog({
             <Button variant={danger ? 'danger' : 'primary'} onClick={() => { onConfirm(); onClose(); }} autoFocus>{confirmLabel}</Button>
           </div>
         </div>
+        <div style={{ minHeight: 0 }} />
       </div>
     </div>
   );
