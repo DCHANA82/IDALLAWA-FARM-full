@@ -61,9 +61,22 @@ kbd {
   .print-card { box-shadow: none !important; border: 1px solid #dadde2 !important; }
 }
 
+/* A4 payslip print mode — overrides @page size */
+@media print {
+  body.printing-a4 { @page { size: A4; margin: 12mm; } }
+  body.printing-a4 #print-root { position: absolute; left: 0; top: 0; width: 210mm; }
+}
+
 .print-a5 {
   width: 210mm;
   min-height: 148mm;
+  background: #fff;
+}
+
+/* A4 payslip — 210mm x 297mm */
+.print-a4 {
+  width: 210mm;
+  min-height: 297mm;
   background: #fff;
 }
 

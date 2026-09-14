@@ -8,7 +8,8 @@ import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmD
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable, StatusBadge } from '@/components/DataTable';
 import { TabBar } from '@/components/TabBar';
-import { printContent, VoucherPrint } from '@/components/print';
+import { printContent, printPayslip, VoucherPrint, PayslipPrint } from '@/components/print';
+import type { PayslipBreakdown } from '@/components/print';
 import { useToast } from '@/components/toast';
 import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense } from '@/lib/types';
 
@@ -210,13 +211,26 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
             </div>
             <div className="divide-y divide-neutral-100">
               <BreakdownRow label="Base Salary (මූලික වැටුප)" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
-              <BreakdownRow label="Daily Wages (දෛනික වැටුප)" value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
+              <BreakdownRow label={`Daily Wages — ${breakdown.daysWorked} days (දෛනික වැටුප)`} value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
               <BreakdownRow label="Fuel / Transport (ඉන්ධන/ප්‍රවාහන දීමනා)" value={breakdown.fuel} icon={<Fuel size={14} />} />
               <BreakdownRow label="Attendance Bonus (සහභාගි දීමනා)" value={breakdown.attendanceBonus} icon={<Award size={14} />} />
               <BreakdownRow label="Other Allowances (වෙනත් දීමනා)" value={breakdown.other} icon={<Plus size={14} />} />
+              <div className="px-4 py-2.5 flex items-center justify-between bg-success-50/50">
+                <span className="font-600 text-sm text-success-800">Gross Earnings (මුළු ඉපැයීම්)</span>
+                <span className="font-700 text-success-700">{LKR(breakdown.grossEarnings)}</span>
+              </div>
+              {breakdown.totalDeductions > 0 && (
+                <>
+                  <BreakdownRow label="Advances / Loans (අත්තිකාරම් / ණය)" value={-breakdown.advances} icon={<Wallet size={14} />} />
+                  <div className="px-4 py-2.5 flex items-center justify-between bg-error-50/50">
+                    <span className="font-600 text-sm text-error-800">Total Deductions (මුළු කුණු)</span>
+                    <span className="font-700 text-error-700">{LKR(breakdown.totalDeductions)}</span>
+                  </div>
+                </>
+              )}
               <div className="px-4 py-3 bg-primary-50 flex items-center justify-between">
-                <span className="font-display font-700 text-primary-800">Net Payout (ශුද්ධ ගෙවීම)</span>
-                <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.total)}</span>
+                <span className="font-display font-700 text-primary-800">Net Payable (අතට ලැබෙන ශුද්ධ වැටුප)</span>
+                <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.netPayable)}</span>
               </div>
             </div>
           </div>
@@ -241,6 +255,18 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
 
         {worker && breakdown && isAdmin && breakdown.total > 0 && (
           <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" icon={<Printer size={14} />} onClick={() => printPayslip(
+              <PayslipPrint
+                farmName={data.farmName || 'ඉදැල්ලෑව ඇග්‍රෝ'}
+                monthLabel={payMonth}
+                workerName={worker.name}
+                employmentType={worker.type === 'Permanent' ? 'Monthly / මාසික' : 'Daily / දෛනික'}
+                designation={worker.role}
+                breakdown={breakdown as PayslipBreakdown}
+                owner={data.owner}
+                logo={data.logo}
+              />
+            )}>Print Payslip / මුද්‍රණය කරන්න</Button>
             <Button icon={<Printer size={14} />} onClick={() => setSettlementModal(true)}>Generate Settlement Voucher</Button>
           </div>
         )}
@@ -288,7 +314,7 @@ function BreakdownRow({ label, value, icon }: { label: string; value: number; ic
 
 function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfirm }: {
   worker: Worker;
-  breakdown: { baseSalary: number; dailyWages: number; fuel: number; attendanceBonus: number; other: number; total: number };
+  breakdown: { baseSalary: number; dailyWages: number; daysWorked: number; fuel: number; attendanceBonus: number; other: number; advances: number; grossEarnings: number; totalDeductions: number; netPayable: number; total: number };
   payMonth: string;
   onClose: () => void;
   onConfirm: () => void;
@@ -298,13 +324,16 @@ function SettlementVoucherModal({ worker, breakdown, payMonth, onClose, onConfir
       <div className="space-y-2">
         <div className="text-sm text-neutral-600 mb-3">Review the payout breakdown for <strong className="text-neutral-900">{worker.name}</strong> for {payMonth}.</div>
         <BreakdownRow label="Base Salary" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
-        <BreakdownRow label="Daily Wages" value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
+        <BreakdownRow label={`Daily Wages — ${breakdown.daysWorked} days`} value={breakdown.dailyWages} icon={<CalendarDays size={14} />} />
         <BreakdownRow label="Fuel / Transport" value={breakdown.fuel} icon={<Fuel size={14} />} />
         <BreakdownRow label="Attendance Bonus" value={breakdown.attendanceBonus} icon={<Award size={14} />} />
         <BreakdownRow label="Other Allowances" value={breakdown.other} icon={<Plus size={14} />} />
+        {breakdown.totalDeductions > 0 && (
+          <BreakdownRow label="Advances / Loans" value={-breakdown.advances} icon={<Wallet size={14} />} />
+        )}
         <div className="px-4 py-3 bg-primary-50 rounded-xl flex items-center justify-between mt-3">
-          <span className="font-display font-700 text-primary-800">Net Payout</span>
-          <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.total)}</span>
+          <span className="font-display font-700 text-primary-800">Net Payable</span>
+          <span className="font-display text-xl font-800 text-primary-700">{LKR(breakdown.netPayable)}</span>
         </div>
       </div>
       <div className="flex justify-end gap-2 mt-5">
