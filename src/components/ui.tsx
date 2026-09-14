@@ -100,31 +100,51 @@ export function Modal({ open, onClose, title, children, footer, size = 'md' }: {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const timer = setTimeout(() => {
       const container = bodyRef.current;
       if (!container) return;
       const firstInput = container.querySelector<HTMLElement>('input, select, textarea, button');
       firstInput?.focus();
     }, 50);
-    return () => { window.removeEventListener('keydown', onKey); clearTimeout(timer); };
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      clearTimeout(timer);
+    };
   }, [open, onClose]);
   if (!open) return null;
   const sizes: Record<string, string> = { sm: 'max-w-md', md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   return (
-    <div className="fixed inset-0 z-50 bg-neutral-950/40 backdrop-blur-sm overflow-y-auto p-4 sm:p-6 flex items-start sm:items-center justify-center min-h-screen" role="dialog" aria-modal="true" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ overflow: 'hidden' }}
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" />
       <div
-        className={`relative bg-white rounded-2xl shadow-card-lg w-full ${sizes[size]} max-h-[85vh] flex flex-col my-auto animate-slide-up`}
+        className={`relative bg-white rounded-2xl shadow-card-lg w-full ${sizes[size]} flex flex-col animate-slide-up`}
+        style={{ maxHeight: 'calc(100dvh - 32px)', overflow: 'hidden' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0 bg-neutral-50/50 rounded-t-2xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 bg-neutral-50/50 rounded-t-2xl" style={{ flexShrink: 0 }}>
           <h3 className="font-display text-base font-700 text-neutral-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" aria-label="Close">
             <X size={18} />
           </button>
         </div>
-        <div ref={bodyRef} className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
+        <div
+          ref={bodyRef}
+          className="px-5 py-4 flex-1 min-h-0"
+          style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}
+        >
+          {children}
+        </div>
         {footer && (
-          <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 shrink-0 flex justify-end gap-2 rounded-b-2xl">
+          <div className="px-5 py-3 border-t border-neutral-200 bg-neutral-50 flex justify-end gap-2 rounded-b-2xl" style={{ flexShrink: 0 }}>
             {footer}
           </div>
         )}
@@ -172,9 +192,23 @@ export function ConfirmDialog({
 }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[60] bg-neutral-950/40 backdrop-blur-sm overflow-y-auto p-4 flex items-center justify-center min-h-screen" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg max-h-[80vh] flex flex-col my-auto animate-slide-up" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ overflow: 'hidden' }}
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" />
+      <div
+        className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg flex flex-col animate-slide-up"
+        style={{ maxHeight: 'calc(100dvh - 32px)', overflow: 'hidden' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="px-5 py-4 flex-1 min-h-0"
+          style={{ overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}
+        >
           <div className="flex items-start gap-3">
             <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-error-100 text-error-600' : 'bg-accent-100 text-accent-600'}`}>
               <AlertTriangle size={20} />
