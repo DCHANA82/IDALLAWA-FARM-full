@@ -88,3 +88,9 @@ kbd {
   background: #fff;
   overflow: hidden;
 }
+/* Universal Modal Scroll Fix */
+div[role="dialog"], 
+.fixed.inset-0 > div > div {
+  max-height: 85vh !important;
+  overflow-y: auto !important;
+}
