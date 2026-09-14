@@ -11,7 +11,7 @@ import { TabBar } from '@/components/TabBar';
 import { printContent, printPayslip, VoucherPrint, PayslipPrint } from '@/components/print';
 import type { PayslipBreakdown } from '@/components/print';
 import { useToast } from '@/components/toast';
-import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense } from '@/lib/types';
+import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType } from '@/lib/types';
 
 type Tab = 'workers' | 'attendance' | 'settlement' | 'vouchers';
 
@@ -260,7 +260,7 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
                 farmName={data.farmName || 'ඉදැල්ලෑව ඇග්‍රෝ'}
                 monthLabel={payMonth}
                 workerName={worker.name}
-                employmentType={worker.type === 'Permanent' ? 'Monthly / මාසික' : 'Daily / දෛනික'}
+                employmentType={worker.employmentType === 'DAILY' ? 'Daily / දෛනික' : worker.employmentType === 'MONTHLY' ? 'Monthly / මාසික' : worker.employmentType === 'HYBRID' ? 'Hybrid / මිශ්‍ර' : (worker.type === 'Permanent' ? 'Monthly / මාසික' : 'Daily / දෛනික')}
                 designation={worker.role}
                 breakdown={breakdown as PayslipBreakdown}
                 owner={data.owner}
@@ -356,7 +356,19 @@ function AllocationBadge({ allocation, crops }: { allocation?: ExpenseAllocation
 function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) {
   const { save } = useStore();
   const { toast } = useToast();
-  const [f, setF] = useState<Worker>(edit || { id: newId('wk'), name: '', type: 'Casual', phone: '', role: '', monthlyBasic: 0, allowances: 0, dailyWage: 1800 });
+  const [f, setF] = useState<Worker>(() => {
+    const base: Worker = edit || { id: newId('wk'), name: '', type: 'Casual', employmentType: 'DAILY', phone: '', role: '', monthlyBasic: 0, allowances: 0, dailyWage: 1800 };
+    if (!base.employmentType) {
+      base.employmentType = base.type === 'Permanent' ? 'MONTHLY' : 'DAILY';
+    }
+    if (base.baseMonthlySalary === undefined) {
+      base.baseMonthlySalary = base.type === 'Permanent' ? base.monthlyBasic + base.allowances : 0;
+    }
+    if (base.defaultDailyRate === undefined) {
+      base.defaultDailyRate = base.dailyWage;
+    }
+    return base;
+  });
   const [errors, setErrors] = useState<Record<string, boolean>>({});
   const [confirmSave, setConfirmSave] = useState(false);
 
@@ -374,7 +386,15 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
 
   const doSave = () => {
     if (!validate()) return;
-    save('workers', f, edit ? 'Worker updated' : 'Worker added');
+    const et = f.employmentType;
+    const saved: Worker = {
+      ...f,
+      type: et === 'DAILY' ? 'Casual' : 'Permanent',
+      monthlyBasic: et === 'MONTHLY' ? (f.baseMonthlySalary ?? 0) : et === 'HYBRID' ? (f.baseMonthlySalary ?? 0) : 0,
+      allowances: 0,
+      dailyWage: f.defaultDailyRate ?? f.dailyWage,
+    };
+    save('workers', saved, edit ? 'Worker updated' : 'Worker added');
     setConfirmSave(false);
     onClose();
   };
@@ -385,16 +405,19 @@ function WorkerModal({ edit, onClose }: { edit?: Worker; onClose: () => void }) 
         <Input label="Name *" value={f.name} error={errors.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
         <Input label="Phone" value={f.phone || ''} onChange={(e) => setF({ ...f, phone: e.target.value })} />
         <DynamicSelect label="Role *" moduleName="worker_role" value={f.role} onChange={(v) => setF({ ...f, role: v })} placeholder="Select or add role" />
-        <Select label="Type" value={f.type} onChange={(e) => setF({ ...f, type: e.target.value as 'Permanent' | 'Casual' })}>
-          <option>Casual</option><option>Permanent</option>
+        <Select label="Employment Type (සේවා වර්ගය)" value={f.employmentType} onChange={(e) => setF({ ...f, employmentType: e.target.value as EmploymentType })}>
+          <option value="DAILY">Daily / දෛනික</option>
+          <option value="MONTHLY">Monthly / මාසික</option>
+          <option value="HYBRID">Hybrid / මිශ්‍ර</option>
         </Select>
-        {f.type === 'Permanent' ? (
-          <>
-            <Input label="Monthly basic (Rs.)" type="number" value={f.monthlyBasic} onChange={(e) => setF({ ...f, monthlyBasic: +e.target.value })} />
-            <Input label="Allowances (Rs.)" type="number" value={f.allowances} onChange={(e) => setF({ ...f, allowances: +e.target.value })} />
-          </>
-        ) : (
-          <Input label="Daily wage (Rs.)" type="number" value={f.dailyWage} onChange={(e) => setF({ ...f, dailyWage: +e.target.value })} />
+        {(f.employmentType === 'DAILY' || f.employmentType === 'HYBRID') && (
+          <Input label="Default Daily Rate (Rs.) දෛනික අනුපාතය" type="number" value={f.defaultDailyRate ?? 0} onChange={(e) => setF({ ...f, defaultDailyRate: +e.target.value })} />
+        )}
+        {(f.employmentType === 'MONTHLY' || f.employmentType === 'HYBRID') && (
+          <Input label="Base Monthly Salary (Rs.) මූලික මාසික වැටුප" type="number" value={f.baseMonthlySalary ?? 0} onChange={(e) => setF({ ...f, baseMonthlySalary: +e.target.value })} />
+        )}
+        {f.employmentType === 'MONTHLY' && (
+          <Input label="Allowances (Rs.) දීමනා" type="number" value={f.allowances} onChange={(e) => setF({ ...f, allowances: +e.target.value })} />
         )}
       </div>
       <div className="flex justify-end gap-2 mt-5">
@@ -433,8 +456,10 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     if (!w) return next;
     if (next.status === 'Absent') return { ...next, hours: 0, amount: 0 };
     const hrs = next.hours;
-    const rate = next.overrideRate ?? w.dailyWage;
-    const amount = w.type === 'Casual' ? Math.round(rate * (hrs / 8)) : 0;
+    const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+    if (et === 'MONTHLY') return { ...next, amount: 0 };
+    const rate = next.overrideRate ?? (w.defaultDailyRate ?? w.dailyWage);
+    const amount = Math.round(rate * (hrs / 8));
     return { ...next, amount };
   };
 
@@ -576,22 +601,22 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         </Select>
         <Input label="Task / Plot" value={f.taskPlot || ''} onChange={(e) => setF({ ...f, taskPlot: e.target.value })} placeholder="Plot A1 / Nursery / Harvest" />
         <Input label="Hours" type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: +e.target.value })} />
-        {worker?.type === 'Casual' && (
+        {worker && (worker.employmentType === 'DAILY' || worker.employmentType === 'HYBRID' || (!worker.employmentType && worker.type === 'Casual')) && (
           <Input
             label="Override Daily Rate (අභිබවා දෛනික අනුපාතය)"
             type="number"
             value={f.overrideRate ?? ''}
             onChange={(e) => setF({ ...f, overrideRate: e.target.value ? +e.target.value : undefined })}
-            placeholder={`Default: ${worker?.dailyWage || 0}`}
+            placeholder={`Default: ${worker?.defaultDailyRate ?? worker?.dailyWage ?? 0}`}
           />
         )}
-        {worker?.type === 'Permanent' && (
+        {worker && (worker.employmentType === 'MONTHLY' || (!worker.employmentType && worker.type === 'Permanent')) && (
           <Input
             label="Override Monthly Salary (අභිබවා මාසික වැටුප)"
             type="number"
             value={f.overrideRate ?? ''}
             onChange={(e) => setF({ ...f, overrideRate: e.target.value ? +e.target.value : undefined })}
-            placeholder={`Default: ${worker?.monthlyBasic || 0}`}
+            placeholder={`Default: ${worker?.baseMonthlySalary ?? (worker?.monthlyBasic || 0) + (worker?.allowances || 0)}`}
           />
         )}
         <div className="flex items-end"><div className="w-full p-3 rounded-xl bg-primary-50 text-sm">Base payout: <strong className="text-primary-700">{LKR(recompute(f).amount)}</strong></div></div>

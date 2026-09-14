@@ -92,15 +92,28 @@ export function nurseryTotals(data: AppData) {
 
 export function workerPayout(data: AppData, worker: Worker, monthISO: string): number {
   const monthAttendance = data.attendance.filter((a) => a.workerId === worker.id && a.date.startsWith(monthISO));
-  if (worker.type === 'Permanent') {
+  const allowances = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0), 0);
+  const et = worker.employmentType || (worker.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+
+  if (et === 'MONTHLY') {
     const days = monthAttendance.filter((a) => a.status !== 'Absent').length;
     const present = days > 0 ? 1 : 0;
-    const baseSalary = (worker.monthlyBasic + worker.allowances) * present;
-    const allowances = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0), 0);
+    const baseSalary = (worker.baseMonthlySalary ?? worker.monthlyBasic + worker.allowances) * present;
     return baseSalary + allowances;
   }
+  if (et === 'HYBRID') {
+    const days = monthAttendance.filter((a) => a.status !== 'Absent').length;
+    const present = days > 0 ? 1 : 0;
+    const baseSalary = (worker.baseMonthlySalary ?? worker.monthlyBasic) * present;
+    const dailyWages = monthAttendance.reduce((s, a) => {
+      const rate = a.overrideRate ?? (worker.defaultDailyRate ?? worker.dailyWage);
+      return s + (a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8)));
+    }, 0);
+    return baseSalary + dailyWages + allowances;
+  }
+  // DAILY
   return monthAttendance.reduce((s, a) => {
-    const rate = a.overrideRate ?? worker.dailyWage;
+    const rate = a.overrideRate ?? (worker.defaultDailyRate ?? worker.dailyWage);
     const baseWage = a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8));
     return s + baseWage + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0);
   }, 0);
@@ -115,28 +128,50 @@ export function workerPayoutBreakdown(data: AppData, worker: Worker, monthISO: s
   const advances = data.vouchers
     .filter((v) => v.kind === 'Loan Settlement' && v.party === worker.name && v.date.startsWith(monthISO))
     .reduce((s, v) => s + v.amount, 0);
-  if (worker.type === 'Permanent') {
+  const et = worker.employmentType || (worker.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+  const dailyRate = worker.defaultDailyRate ?? worker.dailyWage;
+  const monthlySalary = worker.baseMonthlySalary ?? (worker.monthlyBasic + worker.allowances);
+
+  const dailyWages = monthAttendance.reduce((s, a) => {
+    const rate = a.overrideRate ?? dailyRate;
+    return s + (a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8)));
+  }, 0);
+
+  if (et === 'MONTHLY') {
     const present = daysWorked > 0 ? 1 : 0;
-    const baseSalary = (worker.monthlyBasic + worker.allowances) * present;
+    const baseSalary = monthlySalary * present;
     const grossEarnings = baseSalary + fuel + attendanceBonus + other;
     const totalDeductions = advances;
     return { baseSalary, dailyWages: 0, daysWorked, fuel, attendanceBonus, other, advances, grossEarnings, totalDeductions, netPayable: grossEarnings - totalDeductions, total: grossEarnings - totalDeductions };
   }
-  const dailyWages = monthAttendance.reduce((s, a) => {
-    const rate = a.overrideRate ?? worker.dailyWage;
-    return s + (a.status === 'Absent' ? 0 : Math.round(rate * (a.hours / 8)));
-  }, 0);
+  if (et === 'HYBRID') {
+    const present = daysWorked > 0 ? 1 : 0;
+    const baseSalary = (worker.baseMonthlySalary ?? worker.monthlyBasic) * present;
+    const grossEarnings = baseSalary + dailyWages + fuel + attendanceBonus + other;
+    const totalDeductions = advances;
+    return { baseSalary, dailyWages, daysWorked, fuel, attendanceBonus, other, advances, grossEarnings, totalDeductions, netPayable: grossEarnings - totalDeductions, total: grossEarnings - totalDeductions };
+  }
+  // DAILY
   const grossEarnings = dailyWages + fuel + attendanceBonus + other;
   const totalDeductions = advances;
   return { baseSalary: 0, dailyWages, daysWorked, fuel, attendanceBonus, other, advances, grossEarnings, totalDeductions, netPayable: grossEarnings - totalDeductions, total: grossEarnings - totalDeductions };
 }
 
 export function payrollMonthTotals(data: AppData, monthISO: string) {
-  const permanent = data.workers.filter((w) => w.type === 'Permanent').reduce((s, w) => s + workerPayout(data, w, monthISO), 0);
-  const casual = data.attendance
-    .filter((a) => a.date.startsWith(monthISO) && data.workers.find((w) => w.id === a.workerId)?.type === 'Casual')
+  const monthlyHybrid = data.workers.filter((w) => {
+    const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+    return et === 'MONTHLY' || et === 'HYBRID';
+  }).reduce((s, w) => s + workerPayout(data, w, monthISO), 0);
+  const daily = data.attendance
+    .filter((a) => {
+      if (!a.date.startsWith(monthISO)) return false;
+      const w = data.workers.find((x) => x.id === a.workerId);
+      if (!w) return false;
+      const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+      return et === 'DAILY' || et === 'HYBRID';
+    })
     .reduce((s, a) => s + a.amount, 0);
-  return { permanent, casual, total: permanent + casual };
+  return { permanent: monthlyHybrid, casual: daily, total: monthlyHybrid + daily };
 }
 
 export function ledgerBalance(data: AppData, kind: string): { in: number; out: number; net: number } {

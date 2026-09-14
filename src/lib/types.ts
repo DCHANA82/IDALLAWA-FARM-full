@@ -2,6 +2,7 @@
 
 export type Season = 'Yala' | 'Maha';
 export type WorkerType = 'Permanent' | 'Casual';
+export type EmploymentType = 'DAILY' | 'MONTHLY' | 'HYBRID';
 export type ExpenseClass =
   | 'Fixed Overhead'
   | 'Perennial Crop'
@@ -95,11 +96,14 @@ export interface Worker {
   id: string;
   name: string;
   type: WorkerType;
+  employmentType: EmploymentType;   // DAILY | MONTHLY | HYBRID
   phone?: string;
   role: string;
-  monthlyBasic: number;    // permanent
+  monthlyBasic: number;    // permanent / monthly component
   allowances: number;      // permanent
-  dailyWage: number;       // casual
+  dailyWage: number;       // casual / daily component
+  baseMonthlySalary?: number;   // explicit base monthly salary (HYBRID/MONTHLY)
+  defaultDailyRate?: number;    // explicit default daily rate (DAILY/HYBRID)
 }
 
 export type AllocationType = 'CROP' | 'FARM_DEVELOPMENT';

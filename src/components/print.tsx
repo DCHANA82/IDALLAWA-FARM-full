@@ -87,13 +87,13 @@ function PrintShell({ children }: { children: ReactNode }) {
   return <div className="print-a5 mx-auto p-6">{children}</div>;
 }
 
-/** Shell for A4 payslip (210mm x 297mm) */
+/** Shell for 1/3 A4 landscape payslip (297mm x 99mm) */
 function PayslipPrintShell({ children }: { children: ReactNode }) {
   useEffect(() => {
-    document.body.classList.add('printing', 'printing-a4');
-    return () => { document.body.classList.remove('printing', 'printing-a4'); };
+    document.body.classList.add('printing', 'printing-payslip');
+    return () => { document.body.classList.remove('printing', 'printing-payslip'); };
   }, []);
-  return <div className="print-a4 mx-auto p-10">{children}</div>;
+  return <div className="print-payslip mx-auto p-0">{children}</div>;
 }
 
 /** Shell for 1/3 A4 voucher slips (210mm x 99mm) */
@@ -421,162 +421,144 @@ export function PayslipPrint({
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="font-sans text-neutral-900" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div className="font-sans text-neutral-900 text-[10px] leading-tight" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-primary-700 pb-4">
-        <div className="flex items-center gap-3">
-          {logo && <img src={logo} alt="logo" className="w-12 h-12 object-cover rounded" />}
+      <div className="flex items-center justify-between border-b-2 border-primary-700 pb-1.5">
+        <div className="flex items-center gap-2">
+          {logo && <img src={logo} alt="logo" className="w-9 h-9 object-cover rounded" />}
           <div>
-            <div className="font-display text-xl font-800 text-primary-800">{farmName}</div>
-            <div className="text-xs text-neutral-500">Monthly Payslip / මාසික වැටුප් පත්‍රය</div>
+            <div className="font-bold text-sm text-primary-800">{farmName}</div>
+            <div className="text-[8px] text-neutral-500">Monthly Payslip / මාසික වැටුප් පත්‍රය</div>
           </div>
         </div>
         <div className="text-right">
-          <div className="text-xs uppercase tracking-wide text-neutral-500">Pay Period</div>
-          <div className="font-display font-700 text-primary-700 text-lg">{monthLabel}</div>
+          <div className="text-[8px] uppercase text-neutral-500">Pay Period</div>
+          <div className="font-bold text-[11px] text-primary-700">{monthLabel}</div>
         </div>
       </div>
 
-      {/* Worker info */}
-      <div className="grid grid-cols-2 gap-4 mt-5 text-sm">
+      {/* Worker info — 4 columns compact */}
+      <div className="grid grid-cols-4 gap-x-3 mt-1.5">
+        <MetaRow label="Worker" value={workerName} />
+        <MetaRow label="Designation" value={designation} />
+        <MetaRow label="Emp. Type" value={employmentType} />
+        <MetaRow label="Days Worked" value={String(breakdown.daysWorked)} />
+      </div>
+
+      {/* Two-column layout: Earnings | Deductions side by side */}
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        {/* Earnings */}
         <div>
-          <div className="text-xs uppercase text-neutral-500">Worker Name / සේවකයා</div>
-          <div className="font-600 mt-0.5">{workerName}</div>
+          <div className="text-[8px] font-bold uppercase text-primary-700 bg-primary-50 px-1.5 py-0.5 border border-primary-200">Earnings / ඉපැයීම්</div>
+          <table className="w-full border border-neutral-300 border-collapse">
+            <tbody>
+              {breakdown.baseSalary > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Base Salary (මූලික)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.baseSalary)}</td>
+                </tr>
+              )}
+              {breakdown.dailyWages > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Daily Wages — {breakdown.daysWorked}d (දෛනික)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.dailyWages)}</td>
+                </tr>
+              )}
+              {breakdown.fuel > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Fuel/Transport (ඉන්ධන)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.fuel)}</td>
+                </tr>
+              )}
+              {breakdown.attendanceBonus > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Attendance Bonus (සහභාගි)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.attendanceBonus)}</td>
+                </tr>
+              )}
+              {breakdown.other > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Other Allowances (වෙනත්)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.other)}</td>
+                </tr>
+              )}
+              <tr className="bg-primary-50">
+                <td className="px-1.5 py-1 text-[9px] font-bold border border-neutral-300">Gross (මුළු ඉපැයීම්)</td>
+                <td className="px-1.5 py-1 text-right text-[10px] font-bold text-primary-800 border border-neutral-300">{LKR(breakdown.grossEarnings)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
+
+        {/* Deductions */}
         <div>
-          <div className="text-xs uppercase text-neutral-500">Designation / තනතුර</div>
-          <div className="font-600 mt-0.5">{designation}</div>
-        </div>
-        <div>
-          <div className="text-xs uppercase text-neutral-500">Employment Type / සේවා වර්ගය</div>
-          <div className="font-600 mt-0.5">{employmentType}</div>
-        </div>
-        <div>
-          <div className="text-xs uppercase text-neutral-500">Days Worked / වැඩ කළ දින</div>
-          <div className="font-600 mt-0.5">{breakdown.daysWorked}</div>
+          <div className="text-[8px] font-bold uppercase text-error-700 bg-error-50 px-1.5 py-0.5 border border-error-200">Deductions / කුණු</div>
+          <table className="w-full border border-neutral-300 border-collapse">
+            <tbody>
+              {breakdown.advances > 0 && (
+                <tr className="border-b border-neutral-200">
+                  <td className="px-1.5 py-1 text-[9px]">Advances/Loans (අත්තිකාරම්/ණය)</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.advances)}</td>
+                </tr>
+              )}
+              {breakdown.totalDeductions === 0 && (
+                <tr>
+                  <td className="px-1.5 py-1 text-[9px] text-neutral-400 italic">No deductions</td>
+                  <td className="px-1.5 py-1 text-right text-[9px] text-neutral-400">{LKR(0)}</td>
+                </tr>
+              )}
+              {breakdown.totalDeductions > 0 && (
+                <tr className="bg-error-50">
+                  <td className="px-1.5 py-1 text-[9px] font-bold border border-neutral-300">Total Deductions (මුළු කුණු)</td>
+                  <td className="px-1.5 py-1 text-right text-[10px] font-bold text-error-700 border border-neutral-300">{LKR(breakdown.totalDeductions)}</td>
+                </tr>
+              )}
+              {/* Spacer rows to match earnings table height */}
+              {(breakdown.totalDeductions === 0 || breakdown.totalDeductions > 0) && (
+                <>
+                  <tr className="border-b border-neutral-100"><td className="px-1.5 py-1 text-[9px] text-transparent">.</td><td className="px-1.5 py-1 text-right text-[9px] text-transparent">.</td></tr>
+                  <tr className="border-b border-neutral-100"><td className="px-1.5 py-1 text-[9px] text-transparent">.</td><td className="px-1.5 py-1 text-right text-[9px] text-transparent">.</td></tr>
+                </>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Earnings Table */}
-      <div className="mt-6">
-        <div className="text-sm font-700 text-primary-800 mb-2">Earnings / ඉපැයීම්</div>
-        <table className="w-full text-sm border border-neutral-300 border-collapse">
-          <thead>
-            <tr className="bg-primary-50 text-xs uppercase text-neutral-600">
-              <th className="text-left border border-neutral-300 px-3 py-2">Description</th>
-              <th className="text-right border border-neutral-300 px-3 py-2 w-[30%]">Amount (LKR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {breakdown.baseSalary > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Base Monthly Salary (මූලික මාසික වැටුප)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.baseSalary)}</td>
-              </tr>
-            )}
-            {breakdown.dailyWages > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Daily Wages — {breakdown.daysWorked} days (දෛනික වැටුප)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.dailyWages)}</td>
-              </tr>
-            )}
-            {breakdown.fuel > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Fuel / Transport Allowance (ඉන්ධන/ප්‍රවාහන දීමනා)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.fuel)}</td>
-              </tr>
-            )}
-            {breakdown.attendanceBonus > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Attendance Bonus (සහභාගි දීමනා)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.attendanceBonus)}</td>
-              </tr>
-            )}
-            {breakdown.other > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Other Allowances (වෙනත් දීමනා)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.other)}</td>
-              </tr>
-            )}
-            <tr className="bg-primary-50 font-700">
-              <td className="px-3 py-2 border border-neutral-300">Gross Earnings (මුළු ඉපැයීම්)</td>
-              <td className="px-3 py-2 text-right border border-neutral-300 text-primary-800">{LKR(breakdown.grossEarnings)}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Deductions Table */}
-      <div className="mt-4">
-        <div className="text-sm font-700 text-error-800 mb-2">Deductions / කුණු</div>
-        <table className="w-full text-sm border border-neutral-300 border-collapse">
-          <thead>
-            <tr className="bg-neutral-50 text-xs uppercase text-neutral-600">
-              <th className="text-left border border-neutral-300 px-3 py-2">Description</th>
-              <th className="text-right border border-neutral-300 px-3 py-2 w-[30%]">Amount (LKR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {breakdown.advances > 0 && (
-              <tr className="border-b border-neutral-100">
-                <td className="px-3 py-2">Salary Advances / Unpaid Loans (අත්තිකාරම් / ණය)</td>
-                <td className="px-3 py-2 text-right">{LKR(breakdown.advances)}</td>
-              </tr>
-            )}
-            {breakdown.totalDeductions === 0 && (
-              <tr>
-                <td className="px-3 py-2 text-neutral-400 italic">No deductions</td>
-                <td className="px-3 py-2 text-right text-neutral-400">{LKR(0)}</td>
-              </tr>
-            )}
-            {breakdown.totalDeductions > 0 && (
-              <tr className="bg-neutral-50 font-700">
-                <td className="px-3 py-2 border border-neutral-300">Total Deductions (මුළු කුණු)</td>
-                <td className="px-3 py-2 text-right border border-neutral-300 text-error-700">{LKR(breakdown.totalDeductions)}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Net Payable */}
-      <div className="mt-5 flex items-stretch gap-3">
-        <div className="flex-1 border border-neutral-400 px-4 py-2 bg-neutral-50">
-          <span className="text-xs uppercase text-neutral-500">Amount in Words: </span>
-          <span className="font-semibold text-sm">{numberToWords(breakdown.netPayable)} Only</span>
+      {/* Net Payable + Amount in Words */}
+      <div className="flex items-stretch mt-1.5 gap-2">
+        <div className="flex-1 border border-neutral-400 px-2 py-1 bg-neutral-50">
+          <span className="text-[8px] uppercase text-neutral-500">Amount in Words: </span>
+          <span className="font-semibold text-[10px]">{numberToWords(breakdown.netPayable)} Only</span>
         </div>
-        <div className="border-2 border-primary-700 px-6 py-2 bg-primary-50 text-right">
-          <div className="text-xs uppercase text-primary-600">Net Payable / අතට ලැබෙන ශුද්ධ වැටුප</div>
-          <div className="font-display text-2xl font-800 text-primary-800">{LKR(breakdown.netPayable)}</div>
+        <div className="border-2 border-primary-700 px-3 py-1 bg-primary-50 text-right">
+          <div className="text-[8px] uppercase text-primary-600">Net Payable / අතට ලැබෙන ශුද්ධ වැටුප</div>
+          <div className="font-bold text-[13px] text-primary-800">{LKR(breakdown.netPayable)}</div>
         </div>
       </div>
 
       {/* Receipt confirmation */}
-      <div className="mt-4 p-3 rounded-lg bg-neutral-50 border border-neutral-200 text-xs text-neutral-700 text-center">
-        ඉහත සඳහන් ශුද්ධ වැටුප නිවැරදිව ලැබුණු බවට සහතික කරමි.
-        <br />
-        I confirm that the above net salary has been received in full.
+      <div className="mt-1.5 px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-[8px] text-neutral-700 text-center">
+        ඉහත සඳහන් ශුද්ධ වැටුප නිවැරදිව ලැබුණු බවට සහතික කරමි · I confirm receipt of the above net salary in full.
       </div>
 
       {/* Signature blocks */}
-      <div className="mt-8 grid grid-cols-2 gap-8">
-        <div className="text-center">
-          <div className="border-b border-neutral-500 mb-1 h-8" />
-          <div className="text-sm font-600 text-neutral-700">සේවක අත්සන</div>
-          <div className="text-xs text-neutral-500">Worker Signature</div>
-          <div className="text-xs text-neutral-400 mt-1">Date: {today}</div>
+      <div className="mt-2 grid grid-cols-2 gap-6 text-center text-[8px] text-neutral-600">
+        <div>
+          <div className="border-b border-neutral-500 mb-0.5 h-5" />
+          <div className="font-semibold text-neutral-700">සේවක අත්සන</div>
+          <div className="text-neutral-500">Worker Signature · Date: {today}</div>
         </div>
-        <div className="text-center">
-          <div className="border-b border-neutral-500 mb-1 h-8" />
-          <div className="text-sm font-600 text-neutral-700">අනුමත කළේ / කළමනාකරු</div>
-          <div className="text-xs text-neutral-500">Approved / Farm Manager</div>
-          <div className="text-xs text-neutral-400 mt-1">Date: {today}</div>
+        <div>
+          <div className="border-b border-neutral-500 mb-0.5 h-5" />
+          <div className="font-semibold text-neutral-700">අනුමත කළේ / කළමනාකරු</div>
+          <div className="text-neutral-500">Approved / Farm Manager · Date: {today}</div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-6 text-center text-[10px] text-neutral-400 border-t border-neutral-200 pt-2">
-        This is a computer-generated payslip from {farmName} · Generated on {today}
+      <div className="mt-1.5 text-center text-[7px] text-neutral-400 border-t border-neutral-200 pt-0.5">
+        Computer-generated payslip · {farmName} · {today}
       </div>
     </div>
   );

@@ -61,10 +61,10 @@ kbd {
   .print-card { box-shadow: none !important; border: 1px solid #dadde2 !important; }
 }
 
-/* A4 payslip print mode — overrides @page size */
+/* A4 payslip print mode — 1/3 A4 landscape (297mm x 99mm) */
 @media print {
-  body.printing-a4 { @page { size: A4; margin: 12mm; } }
-  body.printing-a4 #print-root { position: absolute; left: 0; top: 0; width: 210mm; }
+  body.printing-payslip { @page { size: 297mm 99mm; margin: 4mm; } }
+  body.printing-payslip #print-root { position: absolute; left: 0; top: 0; width: 297mm; }
 }
 
 .print-a5 {
@@ -73,11 +73,12 @@ kbd {
   background: #fff;
 }
 
-/* A4 payslip — 210mm x 297mm */
-.print-a4 {
-  width: 210mm;
-  min-height: 297mm;
+/* 1/3 A4 landscape payslip — 297mm x 99mm */
+.print-payslip {
+  width: 289mm;
+  height: 91mm;
   background: #fff;
+  overflow: hidden;
 }
 
 /* 1/3 A4 voucher slip — 210mm x 99mm */
