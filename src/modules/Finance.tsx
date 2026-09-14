@@ -11,7 +11,6 @@ import { TabBar } from '@/components/TabBar';
 import { printContent, printVoucherSlip, printExpenseSlip, VoucherPrint, ExpensePrint } from '@/components/print';
 import { exportCSV } from '@/lib/export';
 import { useToast } from '@/components/toast';
-import { useAuth } from '@/lib/auth';
 import { RestrictedModule } from '@/components/RestrictedOverlay';
 import type { PermissionModule } from '@/lib/types';
 import type { LedgerEntry, Voucher, Expense, LedgerKind, FarmDevelopment } from '@/lib/types';
