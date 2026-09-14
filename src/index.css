@@ -88,9 +88,18 @@ kbd {
   background: #fff;
   overflow: hidden;
 }
-/* Universal Modal Scroll Fix */
-div[role="dialog"], 
-.fixed.inset-0 > div > div {
-  max-height: 85vh !important;
+/* Universal Modal Position & Scroll Fix */
+div[class*="fixed"][class*="inset-0"] {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
   overflow-y: auto !important;
+  padding: 2rem 1rem !important;
+}
+
+div[class*="fixed"][class*="inset-0"] > div {
+  max-height: calc(100vh - 4rem) !important;
+  overflow-y: auto !important;
+  margin-top: auto !important;
+  margin-bottom: auto !important;
 }
