@@ -113,14 +113,14 @@ export function Modal({ open, onClose, title, children, size = 'md' }: { open: b
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto" role="dialog" aria-modal="true">
       <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-card-lg my-8 animate-slide-up max-h-[88vh] flex flex-col`}>
+      <div className={`relative w-full ${sizes[size]} bg-white rounded-2xl shadow-card-lg my-8 animate-slide-up max-h-[80vh] flex flex-col`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-200 shrink-0">
           <h3 className="font-display text-base font-700 text-neutral-900">{title}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" aria-label="Close">
             <X size={18} />
           </button>
         </div>
-        <div ref={bodyRef} className="px-5 py-4 overflow-y-auto flex-1">{children}</div>
+        <div ref={bodyRef} className="px-5 py-4 overflow-y-auto flex-1 min-h-0">{children}</div>
       </div>
     </div>
   );
@@ -167,8 +167,8 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="fixed inset-0 bg-neutral-950/40 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg animate-slide-up">
-        <div className="px-5 py-4">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-card-lg animate-slide-up max-h-[80vh] flex flex-col">
+        <div className="px-5 py-4 overflow-y-auto flex-1 min-h-0">
           <div className="flex items-start gap-3">
             <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-error-100 text-error-600' : 'bg-accent-100 text-accent-600'}`}>
               <AlertTriangle size={20} />
