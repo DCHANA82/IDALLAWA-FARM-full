@@ -15,7 +15,13 @@ import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense
 
 type Tab = 'workers' | 'attendance' | 'settlement' | 'vouchers';
 
-const DEVELOPMENT_CATEGORIES = ['Land Preparation', 'Fencing', 'Infrastructure', 'Irrigation', 'Machinery', 'Structures', 'Other'];
+const DEVELOPMENT_CATEGORIES = [
+  'Land Preparation',
+  'Fencing & Boundaries',
+  'Irrigation / Drip Lines',
+  'Buildings & Infrastructure',
+  'General Maintenance',
+];
 
 export function LaborModule() {
   const { data, save, remove, update, nextVoucherNo } = useStore();
@@ -445,7 +451,9 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
   const [allocType, setAllocType] = useState<AllocationType | ''>(edit?.expenseAllocation?.allocationType || '');
   const [cropId, setCropId] = useState<string>(edit?.expenseAllocation?.cropId || '');
   const [plotId, setPlotId] = useState<string>(edit?.expenseAllocation?.plotId || '');
+  const [activity, setActivity] = useState<string>(edit?.expenseAllocation?.activity || '');
   const [devCategory, setDevCategory] = useState<string>(edit?.expenseAllocation?.developmentCategory || '');
+  const [workDetails, setWorkDetails] = useState<string>(edit?.expenseAllocation?.workDetails || '');
   const [fuelAlloc, setFuelAlloc] = useState<'CROP' | 'OVERHEAD' | ''>(edit?.fuelAllocation || '');
   const [fuelCropId, setFuelCropId] = useState<string>(edit?.fuelCropId || '');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -485,9 +493,9 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
   const buildAllocation = (): ExpenseAllocation | undefined => {
     if (!allocType) return undefined;
     if (allocType === 'CROP') {
-      return { allocationType: 'CROP', cropId, plotId: plotId || cropId };
+      return { allocationType: 'CROP', cropId, plotId: plotId || cropId, activity: activity || undefined };
     }
-    return { allocationType: 'FARM_DEVELOPMENT', developmentCategory: devCategory };
+    return { allocationType: 'FARM_DEVELOPMENT', developmentCategory: devCategory, workDetails: workDetails || undefined };
   };
 
   const doSave = () => {
@@ -507,7 +515,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           cropId: allocation.cropId!,
           date: finalAttendance.date,
           category: 'Labor',
-          description: `Labor — ${workerName} (${finalAttendance.hours}h)`,
+          description: `Labor — ${workerName} (${finalAttendance.hours}h)${allocation.activity ? ` — ${allocation.activity}` : ''}`,
           amount: finalAttendance.amount,
         };
         update('cropExpenses', [ce, ...data.cropExpenses]);
@@ -531,7 +539,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           date: finalAttendance.date,
           class: 'Fixed Overhead',
           category: allocation.developmentCategory || 'Farm Development',
-          description: `Labor — ${workerName} (${finalAttendance.hours}h) — Farm Development`,
+          description: `Labor — ${workerName} (${finalAttendance.hours}h) — Farm Development${allocation.workDetails ? ` — ${allocation.workDetails}` : ''}`,
           amount: finalAttendance.amount,
           reference: `LABOR-${finalAttendance.id}`,
         };
@@ -599,7 +607,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         <Select label="Status" value={f.status} onChange={(e) => setF({ ...f, status: e.target.value as Attendance['status'] })}>
           <option>Present</option><option>Absent</option><option>Half Day</option>
         </Select>
-        <Input label="Task / Plot" value={f.taskPlot || ''} onChange={(e) => setF({ ...f, taskPlot: e.target.value })} placeholder="Plot A1 / Nursery / Harvest" />
         <Input label="Hours" type="number" value={f.hours} onChange={(e) => setF({ ...f, hours: +e.target.value })} />
         {worker && (worker.employmentType === 'DAILY' || worker.employmentType === 'HYBRID' || (!worker.employmentType && worker.type === 'Casual')) && (
           <Input
@@ -682,45 +689,69 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
       {/* Expense Allocation Section */}
       <div className="mt-5 pt-4 border-t border-neutral-200">
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-1 h-5 rounded-full bg-primary-600" />
+          <div className="w-1 h-5 rounded-full bg-emerald-600" />
           <h4 className="font-display text-sm font-700 text-neutral-900">Expense Allocation</h4>
-          <span className="text-xs text-neutral-500">වියදම් වර්ගය</span>
+          <span className="text-xs text-neutral-500">පිරිවැය වර්ගය</span>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-3">
-          <Select
-            label="Allocation Type (වියදම් වර්ගය) *"
-            value={allocType}
-            onChange={(e) => { setAllocType(e.target.value as AllocationType | ''); setCropId(''); setPlotId(''); setDevCategory(''); }}
+        {/* Toggle Tabs */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => { setAllocType('CROP'); setCropId(''); setPlotId(''); setActivity(''); setDevCategory(''); setWorkDetails(''); }}
+            className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${allocType === 'CROP'
+              ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-sm'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:bg-emerald-50/50'}`}
           >
-            <option value="">— Select allocation —</option>
-            <option value="CROP">Crop Specific (වගා සෘජු වියදම්)</option>
-            <option value="FARM_DEVELOPMENT">Farm Development (ගොවිපල සංවර්ධන)</option>
-          </Select>
+            <Sprout size={20} className={allocType === 'CROP' ? 'text-emerald-600' : 'text-neutral-400'} />
+            <div className="text-left">
+              <div className="font-600 text-sm">Crop Specific</div>
+              <div className="text-xs text-neutral-500">වගා සෘජු වියදම්</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setAllocType('FARM_DEVELOPMENT'); setCropId(''); setPlotId(''); setActivity(''); setDevCategory(''); setWorkDetails(''); }}
+            className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all ${allocType === 'FARM_DEVELOPMENT'
+              ? 'border-emerald-600 bg-emerald-50 text-emerald-900 shadow-sm'
+              : 'border-neutral-200 bg-white text-neutral-600 hover:border-emerald-300 hover:bg-emerald-50/50'}`}
+          >
+            <Hammer size={20} className={allocType === 'FARM_DEVELOPMENT' ? 'text-emerald-600' : 'text-neutral-400'} />
+            <div className="text-left">
+              <div className="font-600 text-sm">Farm Development</div>
+              <div className="text-xs text-neutral-500">ගොවිපල සංවර්ධන</div>
+            </div>
+          </button>
+        </div>
 
-          {allocType === 'CROP' && (
-            <>
-              <Select label="Crop (බෝගය) *" value={cropId} error={errors.cropId} onChange={(e) => { setCropId(e.target.value); const c = data.crops.find((x) => x.id === e.target.value); setPlotId(c?.plot || ''); }}>
-                <option value="">— Select crop —</option>
-                {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
-              </Select>
-              <Select label="Plot (කොටස)" value={plotId} onChange={(e) => setPlotId(e.target.value)}>
-                <option value="">— Select plot —</option>
-                {data.crops.map((c) => <option key={c.id} value={c.plot}>{c.plot}</option>)}
-              </Select>
-            </>
-          )}
+        {/* Dynamic Fields — Crop Specific */}
+        {allocType === 'CROP' && (
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Select label="Select Crop / වගාව *" value={cropId} error={errors.cropId} onChange={(e) => { setCropId(e.target.value); const c = data.crops.find((x) => x.id === e.target.value); setPlotId(c?.plot || ''); }}>
+              <option value="">— Select crop —</option>
+              {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
+            </Select>
+            <Select label="Select Plot / බිම් කොටස" value={plotId} onChange={(e) => setPlotId(e.target.value)}>
+              <option value="">— Select plot —</option>
+              {data.crops.map((c) => <option key={c.id} value={c.plot}>{c.plot}</option>)}
+            </Select>
+            <Input label="Activity / කාර්යය" value={activity} onChange={(e) => setActivity(e.target.value)} placeholder="Harvesting, Weeding, Spraying" />
+          </div>
+        )}
 
-          {allocType === 'FARM_DEVELOPMENT' && (
-            <Select label="Development Category (සංවර්ධන වර්ගය) *" value={devCategory} error={errors.devCategory} onChange={(e) => setDevCategory(e.target.value)}>
+        {/* Dynamic Fields — Farm Development */}
+        {allocType === 'FARM_DEVELOPMENT' && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Select label="Development Category / සංවර්ධන අංශය *" value={devCategory} error={errors.devCategory} onChange={(e) => setDevCategory(e.target.value)}>
               <option value="">— Select category —</option>
               {DEVELOPMENT_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
-          )}
-        </div>
+            <Input label="Work Details / විස්තරය" value={workDetails} onChange={(e) => setWorkDetails(e.target.value)} placeholder="Describe the work done" />
+          </div>
+        )}
 
         {allocType && (
-          <div className="mt-3 p-3 rounded-xl bg-neutral-50 border border-neutral-200 text-xs text-neutral-600">
+          <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
             {allocType === 'CROP' ? (
               <>Wage will be added to the selected crop's <strong>Labor expense</strong> in Crop P&L and a payment voucher will be created.</>
             ) : (

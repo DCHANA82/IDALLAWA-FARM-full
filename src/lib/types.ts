@@ -112,7 +112,9 @@ export interface ExpenseAllocation {
   allocationType: AllocationType;
   cropId?: string;              // required when allocationType === 'CROP'
   plotId?: string;              // required when allocationType === 'CROP'
+  activity?: string;            // activity description when allocationType === 'CROP'
   developmentCategory?: string; // required when allocationType === 'FARM_DEVELOPMENT'
+  workDetails?: string;         // work details when allocationType === 'FARM_DEVELOPMENT'
 }
 
 export interface Attendance {
