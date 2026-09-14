@@ -529,7 +529,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
         const exp: Expense = {
           id: newId('ex'),
           date: finalAttendance.date,
-          class: 'Seasonal Crop',
+          class: 'Fixed Overhead',
           category: allocation.developmentCategory || 'Farm Development',
           description: `Labor — ${workerName} (${finalAttendance.hours}h) — Farm Development`,
           amount: finalAttendance.amount,
