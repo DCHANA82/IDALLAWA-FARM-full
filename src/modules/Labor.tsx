@@ -8,7 +8,7 @@ import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmD
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable, StatusBadge } from '@/components/DataTable';
 import { TabBar } from '@/components/TabBar';
-import { printContent, printPayslip, VoucherPrint, PayslipPrint } from '@/components/print';
+import { printContent, VoucherPrint, PayslipPrint } from '@/components/print';
 import type { PayslipBreakdown } from '@/components/print';
 import { useToast } from '@/components/toast';
 import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType } from '@/lib/types';
@@ -185,8 +185,22 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
     presentDays: data.attendance.filter((a) => a.workerId === w.id && a.date.startsWith(payMonth) && a.status !== 'Absent').length,
   }));
 
+  const handlePrintPayslip = () => {
+    document.body.classList.add('printing-payslip');
+    window.print();
+    setTimeout(() => {
+      document.body.classList.remove('printing-payslip');
+    }, 500);
+  };
+
+  const employmentTypeLabel = worker?.employmentType === 'DAILY' ? 'Daily / දෛනික'
+    : worker?.employmentType === 'MONTHLY' ? 'Monthly / මාසික'
+    : worker?.employmentType === 'HYBRID' ? 'Hybrid / මිශ්‍ර'
+    : (worker?.type === 'Permanent' ? 'Monthly / මාසික' : 'Daily / දෛනික');
+
   return (
     <div className="space-y-4">
+      <div className="screen-only-payroll space-y-4">
       <Card className="p-5">
         <SectionTitle title="Month-End Settlement" subtitle="Calculate net payout with allowances and bonuses" icon={<Calculator size={18} />}
           action={
@@ -211,9 +225,14 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
 
         {worker && breakdown && (
           <div className="rounded-xl border border-neutral-200 overflow-hidden">
-            <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200">
-              <div className="font-display font-700 text-neutral-900">{worker.name}</div>
-              <div className="text-xs text-neutral-500">{worker.role} · {payMonth}</div>
+            <div className="px-4 py-3 bg-neutral-50 border-b border-neutral-200 flex items-center justify-between">
+              <div>
+                <div className="font-display font-700 text-neutral-900">{worker.name}</div>
+                <div className="text-xs text-neutral-500">{worker.role} · {payMonth}</div>
+              </div>
+              {breakdown.total > 0 && (
+                <Button variant="outline" icon={<Printer size={14} />} onClick={handlePrintPayslip}>Print Payslip / මුද්‍රණය කරන්න</Button>
+              )}
             </div>
             <div className="divide-y divide-neutral-100">
               <BreakdownRow label="Base Salary (මූලික වැටුප)" value={breakdown.baseSalary} icon={<Wallet size={14} />} />
@@ -261,18 +280,6 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
 
         {worker && breakdown && isAdmin && breakdown.total > 0 && (
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" icon={<Printer size={14} />} onClick={() => printPayslip(
-              <PayslipPrint
-                farmName={data.farmName || 'ඉදැල්ලෑව ඇග්‍රෝ'}
-                monthLabel={payMonth}
-                workerName={worker.name}
-                employmentType={worker.employmentType === 'DAILY' ? 'Daily / දෛනික' : worker.employmentType === 'MONTHLY' ? 'Monthly / මාසික' : worker.employmentType === 'HYBRID' ? 'Hybrid / මිශ්‍ර' : (worker.type === 'Permanent' ? 'Monthly / මාසික' : 'Daily / දෛනික')}
-                designation={worker.role}
-                breakdown={breakdown as PayslipBreakdown}
-                owner={data.owner}
-                logo={data.logo}
-              />
-            )}>Print Payslip / මුද්‍රණය කරන්න</Button>
             <Button icon={<Printer size={14} />} onClick={() => setSettlementModal(true)}>Generate Settlement Voucher</Button>
           </div>
         )}
@@ -301,6 +308,22 @@ function SettlementTab({ payMonth, setPayMonth, settlementWorkerId, setSettlemen
             setSettlementModal(false);
           }}
         />
+      )}
+      </div>
+
+      {worker && breakdown && breakdown.total > 0 && (
+        <div className="print-only-payslip" id="printable-payslip">
+          <PayslipPrint
+            farmName={data.farmName || 'ඉදැල්ලෑව ඇග්‍රෝ'}
+            monthLabel={payMonth}
+            workerName={worker.name}
+            employmentType={employmentTypeLabel}
+            designation={worker.role}
+            breakdown={breakdown as PayslipBreakdown}
+            owner={data.owner}
+            logo={data.logo}
+          />
+        </div>
       )}
     </div>
   );

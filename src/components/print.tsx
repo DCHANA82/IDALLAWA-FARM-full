@@ -87,7 +87,7 @@ function PrintShell({ children }: { children: ReactNode }) {
   return <div className="print-a5 mx-auto p-6">{children}</div>;
 }
 
-/** Shell for 1/3 A4 landscape payslip (297mm x 99mm) */
+/** Shell for A4 landscape payslip — 1/3 page height (68mm) */
 function PayslipPrintShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.body.classList.add('printing', 'printing-payslip');
@@ -421,145 +421,120 @@ export function PayslipPrint({
   const today = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
 
   return (
-    <div className="font-sans text-neutral-900 text-[10px] leading-tight" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div
+      className="payslip-print-root"
+      style={{
+        fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
+        color: '#1a1f22',
+        fontSize: '8px',
+        lineHeight: 1.3,
+        boxSizing: 'border-box',
+        breakInside: 'avoid',
+        pageBreakInside: 'avoid',
+      }}
+    >
       {/* Header */}
-      <div className="flex items-center justify-between border-b-2 border-primary-700 pb-1.5">
-        <div className="flex items-center gap-2">
-          {logo && <img src={logo} alt="logo" className="w-9 h-9 object-cover rounded" />}
-          <div>
-            <div className="font-bold text-sm text-primary-800">{farmName}</div>
-            <div className="text-[8px] text-neutral-500">Monthly Payslip / මාසික වැටුප් පත්‍රය</div>
+      <div className="payslip-print-header" style={{ borderBottom: '2px solid #1b3c1a', paddingBottom: '4px', marginBottom: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {logo && <img src={logo} alt="logo" style={{ width: '24px', height: '24px', objectFit: 'cover', borderRadius: '3px' }} />}
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '11px', color: '#1b3c1a' }}>ඉදැල්ලෑව ඇග්‍රෝ - වැටුප් පත්‍රිකාව</div>
+              <div style={{ fontSize: '7px', color: '#666' }}>Monthly Payslip · {farmName}</div>
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '7px', color: '#666', textTransform: 'uppercase' }}>Pay Period</div>
+            <div style={{ fontWeight: 700, fontSize: '9px', color: '#1b3c1a' }}>{monthLabel}</div>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-[8px] uppercase text-neutral-500">Pay Period</div>
-          <div className="font-bold text-[11px] text-primary-700">{monthLabel}</div>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '3px', fontSize: '7px', color: '#444' }}>
+          <span><strong>Worker:</strong> {workerName}</span>
+          <span><strong>Designation:</strong> {designation}</span>
+          <span><strong>Emp. Type:</strong> {employmentType}</span>
+          <span><strong>Days Worked:</strong> {breakdown.daysWorked}</span>
         </div>
       </div>
 
-      {/* Worker info — 4 columns compact */}
-      <div className="grid grid-cols-4 gap-x-3 mt-1.5">
-        <MetaRow label="Worker" value={workerName} />
-        <MetaRow label="Designation" value={designation} />
-        <MetaRow label="Emp. Type" value={employmentType} />
-        <MetaRow label="Days Worked" value={String(breakdown.daysWorked)} />
-      </div>
-
-      {/* Two-column layout: Earnings | Deductions side by side */}
-      <div className="grid grid-cols-2 gap-2 mt-2">
-        {/* Earnings */}
-        <div>
-          <div className="text-[8px] font-bold uppercase text-primary-700 bg-primary-50 px-1.5 py-0.5 border border-primary-200">Earnings / ඉපැයීම්</div>
-          <table className="w-full border border-neutral-300 border-collapse">
-            <tbody>
-              {breakdown.baseSalary > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Base Salary (මූලික)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.baseSalary)}</td>
-                </tr>
-              )}
-              {breakdown.dailyWages > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Daily Wages — {breakdown.daysWorked}d (දෛනික)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.dailyWages)}</td>
-                </tr>
-              )}
-              {breakdown.fuel > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Fuel/Transport (ඉන්ධන)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.fuel)}</td>
-                </tr>
-              )}
-              {breakdown.attendanceBonus > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Attendance Bonus (සහභාගි)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.attendanceBonus)}</td>
-                </tr>
-              )}
-              {breakdown.other > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Other Allowances (වෙනත්)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.other)}</td>
-                </tr>
-              )}
-              <tr className="bg-primary-50">
-                <td className="px-1.5 py-1 text-[9px] font-bold border border-neutral-300">Gross (මුළු ඉපැයීම්)</td>
-                <td className="px-1.5 py-1 text-right text-[10px] font-bold text-primary-800 border border-neutral-300">{LKR(breakdown.grossEarnings)}</td>
-              </tr>
-            </tbody>
-          </table>
+      {/* Three-column layout */}
+      <div className="payslip-print-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+        {/* Column 1: Earnings */}
+        <div className="payslip-print-column" style={{ border: '1px solid #cfd4cc', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ background: '#e8f5e9', fontWeight: 700, fontSize: '8px', color: '#1b5e20', padding: '2px 4px', borderBottom: '1px solid #cfd4cc' }}>
+            ලැබීම් / EARNINGS
+          </div>
+          <div style={{ padding: '3px 4px' }}>
+            <PayslipRow label="Base Salary" value={breakdown.baseSalary} />
+            <PayslipRow label={`Daily Wages (${breakdown.daysWorked}d)`} value={breakdown.dailyWages} />
+            <PayslipRow label="Fuel / Transport" value={breakdown.fuel} />
+            <PayslipRow label="Attendance Bonus" value={breakdown.attendanceBonus} />
+            <PayslipRow label="Other Allowances" value={breakdown.other} />
+            <div style={{ borderTop: '1px solid #999', marginTop: '2px', paddingTop: '2px', display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '8px', color: '#1b5e20' }}>
+              <span>Gross Earnings</span>
+              <span>{LKR(breakdown.grossEarnings)}</span>
+            </div>
+          </div>
         </div>
 
-        {/* Deductions */}
-        <div>
-          <div className="text-[8px] font-bold uppercase text-error-700 bg-error-50 px-1.5 py-0.5 border border-error-200">Deductions / කුණු</div>
-          <table className="w-full border border-neutral-300 border-collapse">
-            <tbody>
-              {breakdown.advances > 0 && (
-                <tr className="border-b border-neutral-200">
-                  <td className="px-1.5 py-1 text-[9px]">Advances/Loans (අත්තිකාරම්/ණය)</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] font-semibold">{LKR(breakdown.advances)}</td>
-                </tr>
-              )}
-              {breakdown.totalDeductions === 0 && (
-                <tr>
-                  <td className="px-1.5 py-1 text-[9px] text-neutral-400 italic">No deductions</td>
-                  <td className="px-1.5 py-1 text-right text-[9px] text-neutral-400">{LKR(0)}</td>
-                </tr>
-              )}
-              {breakdown.totalDeductions > 0 && (
-                <tr className="bg-error-50">
-                  <td className="px-1.5 py-1 text-[9px] font-bold border border-neutral-300">Total Deductions (මුළු කුණු)</td>
-                  <td className="px-1.5 py-1 text-right text-[10px] font-bold text-error-700 border border-neutral-300">{LKR(breakdown.totalDeductions)}</td>
-                </tr>
-              )}
-              {/* Spacer rows to match earnings table height */}
-              {(breakdown.totalDeductions === 0 || breakdown.totalDeductions > 0) && (
-                <>
-                  <tr className="border-b border-neutral-100"><td className="px-1.5 py-1 text-[9px] text-transparent">.</td><td className="px-1.5 py-1 text-right text-[9px] text-transparent">.</td></tr>
-                  <tr className="border-b border-neutral-100"><td className="px-1.5 py-1 text-[9px] text-transparent">.</td><td className="px-1.5 py-1 text-right text-[9px] text-transparent">.</td></tr>
-                </>
-              )}
-            </tbody>
-          </table>
+        {/* Column 2: Deductions */}
+        <div className="payslip-print-column" style={{ border: '1px solid #cfd4cc', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ background: '#ffebee', fontWeight: 700, fontSize: '8px', color: '#b71c1c', padding: '2px 4px', borderBottom: '1px solid #cfd4cc' }}>
+            අඩුකිරීම් / DEDUCTIONS
+          </div>
+          <div style={{ padding: '3px 4px' }}>
+            <PayslipRow label="Advances / Loans" value={breakdown.advances} />
+            <PayslipRow label="Other Deductions" value={Math.max(0, breakdown.totalDeductions - breakdown.advances)} />
+            <div style={{ borderTop: '1px solid #999', marginTop: '2px', paddingTop: '2px', display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '8px', color: '#b71c1c' }}>
+              <span>Total Deductions</span>
+              <span>{LKR(breakdown.totalDeductions)}</span>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Net Payable + Amount in Words */}
-      <div className="flex items-stretch mt-1.5 gap-2">
-        <div className="flex-1 border border-neutral-400 px-2 py-1 bg-neutral-50">
-          <span className="text-[8px] uppercase text-neutral-500">Amount in Words: </span>
-          <span className="font-semibold text-[10px]">{numberToWords(breakdown.netPayable)} Only</span>
-        </div>
-        <div className="border-2 border-primary-700 px-3 py-1 bg-primary-50 text-right">
-          <div className="text-[8px] uppercase text-primary-600">Net Payable / අතට ලැබෙන ශුද්ධ වැටුප</div>
-          <div className="font-bold text-[13px] text-primary-800">{LKR(breakdown.netPayable)}</div>
-        </div>
-      </div>
-
-      {/* Receipt confirmation */}
-      <div className="mt-1.5 px-2 py-1 rounded bg-neutral-50 border border-neutral-200 text-[8px] text-neutral-700 text-center">
-        ඉහත සඳහන් ශුද්ධ වැටුප නිවැරදිව ලැබුණු බවට සහතික කරමි · I confirm receipt of the above net salary in full.
-      </div>
-
-      {/* Signature blocks */}
-      <div className="mt-2 grid grid-cols-2 gap-6 text-center text-[8px] text-neutral-600">
-        <div>
-          <div className="border-b border-neutral-500 mb-0.5 h-5" />
-          <div className="font-semibold text-neutral-700">සේවක අත්සන</div>
-          <div className="text-neutral-500">Worker Signature · Date: {today}</div>
-        </div>
-        <div>
-          <div className="border-b border-neutral-500 mb-0.5 h-5" />
-          <div className="font-semibold text-neutral-700">අනුමත කළේ / කළමනාකරු</div>
-          <div className="text-neutral-500">Approved / Farm Manager · Date: {today}</div>
+        {/* Column 3: Net Pay + Signatures */}
+        <div className="payslip-print-column" style={{ border: '1px solid #cfd4cc', borderRadius: '3px', overflow: 'hidden' }}>
+          <div style={{ background: '#e3f2fd', fontWeight: 700, fontSize: '8px', color: '#0d47a1', padding: '2px 4px', borderBottom: '1px solid #cfd4cc' }}>
+            ශුද්ධ වැටුප / NET PAY
+          </div>
+          <div style={{ padding: '3px 4px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '3px' }}>
+              <div style={{ fontSize: '7px', color: '#666' }}>Net Payable</div>
+              <div style={{ fontWeight: 800, fontSize: '13px', color: '#0d47a1' }}>{LKR(breakdown.netPayable)}</div>
+            </div>
+            <div style={{ fontSize: '6px', color: '#555', textAlign: 'center', marginBottom: '3px', fontStyle: 'italic' }}>
+              {numberToWords(breakdown.netPayable)} Only
+            </div>
+            <div style={{ fontSize: '6px', color: '#444', textAlign: 'center', marginBottom: '4px', lineHeight: 1.2 }}>
+              ඉහත සඳහන් ශුද්ධ වැටුප නිවැරදිව ලැබුණු බවට සහතික කරමි.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '6px', color: '#555', textAlign: 'center' }}>
+              <div>
+                <div style={{ borderBottom: '1px solid #666', height: '14px', marginBottom: '1px' }} />
+                <div>සේවක අත්සන</div>
+              </div>
+              <div>
+                <div style={{ borderBottom: '1px solid #666', height: '14px', marginBottom: '1px' }} />
+                <div>අනුමත කළේ / කළමනාකරු</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="mt-1.5 text-center text-[7px] text-neutral-400 border-t border-neutral-200 pt-0.5">
+      <div className="payslip-print-footer" style={{ marginTop: '3px', textAlign: 'center', fontSize: '6px', color: '#999', borderTop: '1px solid #e0e0e0', paddingTop: '2px' }}>
         Computer-generated payslip · {farmName} · {today}
       </div>
+    </div>
+  );
+}
+
+function PayslipRow({ label, value }: { label: string; value: number }) {
+  if (value === 0) return null;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', marginBottom: '1px' }}>
+      <span style={{ color: '#444' }}>{label}</span>
+      <span style={{ fontWeight: 600 }}>{LKR(value)}</span>
     </div>
   );
 }
