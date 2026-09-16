@@ -125,9 +125,9 @@ export function workerPayoutBreakdown(data: AppData, worker: Worker, monthISO: s
   const fuel = monthAttendance.reduce((s, a) => s + (a.fuelTransportAllowance || 0), 0);
   const attendanceBonus = monthAttendance.reduce((s, a) => s + (a.attendanceAllowance || 0), 0);
   const other = monthAttendance.reduce((s, a) => s + (a.otherAllowances || 0), 0);
-  const advances = data.vouchers
-    .filter((v) => v.kind === 'Loan Settlement' && v.party === worker.name && v.date.startsWith(monthISO))
-    .reduce((s, v) => s + v.amount, 0);
+  const advances = data.advanceRecoveries
+    .filter((r) => r.workerId === worker.id && r.recoveryDate.startsWith(monthISO))
+    .reduce((s, r) => s + r.amount, 0);
   const et = worker.employmentType || (worker.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
   const dailyRate = worker.defaultDailyRate ?? worker.dailyWage;
   const monthlySalary = worker.baseMonthlySalary ?? (worker.monthlyBasic + worker.allowances);
@@ -270,10 +270,11 @@ export function payrollReportData(data: AppData, monthISO: string) {
   const dailyPayments = monthPayments.filter((p) => p.salaryType === 'DAILY');
   const monthlyPayments = monthPayments.filter((p) => p.salaryType === 'MONTHLY');
 
-  const monthlySalary = monthlyPayments.reduce((s, p) => s + p.grossAmount, 0);
+  const monthlySalary = monthlyPayments.reduce((s, p) => s + p.grossAmount - p.allowances, 0);
   const dailySalary = dailyPayments.reduce((s, p) => s + p.grossAmount - p.allowances, 0);
-  const dailyAllowances = dailyPayments.reduce((s, p) => s + p.allowances, 0) + monthlyPayments.reduce((s, p) => s + p.allowances, 0);
-  const totalEarnings = monthPayments.reduce((s, p) => s + p.grossAmount + p.allowances, 0);
+  const dailyAllowances = dailyPayments.reduce((s, p) => s + p.allowances, 0);
+  const monthlyAllowances = monthlyPayments.reduce((s, p) => s + p.allowances, 0);
+  const totalEarnings = monthPayments.reduce((s, p) => s + p.grossAmount, 0);
 
   const monthAdvances = data.employeeAdvances.filter((a) => a.advanceDate.startsWith(monthISO));
   const advancesGiven = monthAdvances.reduce((s, a) => s + a.amount, 0);
@@ -292,6 +293,7 @@ export function payrollReportData(data: AppData, monthISO: string) {
     monthlySalary,
     dailySalary,
     dailyAllowances,
+    monthlyAllowances,
     totalEarnings,
     advancesGiven,
     advancesRecovered,
@@ -367,7 +369,7 @@ export function payrollMonthTotals(data: AppData, monthISO: string) {
       const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
       return et === 'DAILY' || et === 'HYBRID';
     })
-    .reduce((s, a) => s + a.amount, 0);
+    .reduce((s, a) => s + a.amount + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0), 0);
   return { permanent: monthlyHybrid, casual: daily, total: monthlyHybrid + daily };
 }
 
@@ -383,7 +385,10 @@ export function farmOverallPnL(data: AppData) {
   const cropCost = cropPnls.reduce((s, p) => s + p.totalCost, 0);
   const nursery = nurseryTotals(data);
   const overheads = data.expenses.filter((e) => e.class === 'Fixed Overhead').reduce((s, e) => s + e.amount, 0);
-  const payroll = data.expenses.filter((e) => e.class === 'Payroll').reduce((s, e) => s + e.amount, 0);
+  const unallocatedLabor = data.attendance
+    .filter((a) => !a.expenseAllocation)
+    .reduce((s, a) => s + a.amount + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0), 0);
+  const payroll = unallocatedLabor;
   const capex = data.farmDevelopments.reduce((s, d) => s + d.totalCost, 0);
   const annualDepreciation = data.farmDevelopments.reduce((s, d) => s + (d.lifespanYears > 0 ? d.totalCost / d.lifespanYears : 0), 0);
   const revenue = cropRevenue + nursery.salesRevenue;

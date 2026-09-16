@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Fuel, Award, Calculator, Pencil, Trash2, HandCoins, History, BookOpen, CheckCircle2 } from 'lucide-react';
-import { useStore, newId, upsertRow } from '@/lib/store';
+import { useStore, newId, upsertRow, deleteRow } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { LKR, fmtDate, todayISO, downloadFile, toCSV } from '@/lib/format';
 import { workerPayout, workerPayoutBreakdown, payrollMonthTotals, workerOutstandingAdvances, workerTotalOutstanding, workerAdvanceHistory, advanceRecoveriesFor, workerRecoveryHistory, computeAdvanceStatus, recomputeAdvanceBalances, eligibleAdvancesForRecovery, suggestAdvanceRecovery, workerSalaryPayments, workerPaymentsForMonth, isPaymentDuplicate, payrollReportData, workerAdvanceLedger } from '@/lib/calc';
@@ -41,7 +41,28 @@ export function LaborModule() {
 
   const doDelete = () => {
     if (!confirmDelete) return;
-    remove(confirmDelete.kind, confirmDelete.id, confirmDelete.kind === 'workers' ? 'Worker deleted' : 'Attendance deleted');
+    if (confirmDelete.kind === 'attendance') {
+      const ref = `LABOR-${confirmDelete.id}`;
+      const fuelRef = `FUEL-${confirmDelete.id}`;
+      const linkedCropExpenses = data.cropExpenses.filter((e) => e.reference === ref || e.reference === fuelRef);
+      const linkedExpenses = data.expenses.filter((e) => e.reference === ref || e.reference === fuelRef);
+      const linkedVouchers = data.vouchers.filter((v) => v.reference === ref || v.reference === fuelRef);
+      if (linkedCropExpenses.length) {
+        update('cropExpenses', data.cropExpenses.filter((e) => e.reference !== ref && e.reference !== fuelRef));
+        linkedCropExpenses.forEach((e) => deleteRow('cropExpenses', e.id).catch(() => {}));
+      }
+      if (linkedExpenses.length) {
+        update('expenses', data.expenses.filter((e) => e.reference !== ref && e.reference !== fuelRef));
+        linkedExpenses.forEach((e) => deleteRow('expenses', e.id).catch(() => {}));
+      }
+      if (linkedVouchers.length) {
+        update('vouchers', data.vouchers.filter((v) => v.reference !== ref && v.reference !== fuelRef));
+        linkedVouchers.forEach((v) => deleteRow('vouchers', v.id).catch(() => {}));
+      }
+      remove('attendance', confirmDelete.id, 'Attendance deleted');
+    } else {
+      remove(confirmDelete.kind, confirmDelete.id, confirmDelete.kind === 'workers' ? 'Worker deleted' : 'Record deleted');
+    }
     setConfirmDelete(null);
   };
 
@@ -535,7 +556,28 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     const finalAttendance = recompute({ ...f, expenseAllocation: allocation });
     save('attendance', finalAttendance, edit ? 'Attendance updated' : 'Attendance added');
 
-    if (!edit && finalAttendance.amount > 0 && allocation) {
+    const laborRef = `LABOR-${finalAttendance.id}`;
+    const fuelRef = `FUEL-${finalAttendance.id}`;
+
+    if (edit) {
+      const oldCropExpenses = data.cropExpenses.filter((e) => e.reference === laborRef || e.reference === fuelRef);
+      const oldExpenses = data.expenses.filter((e) => e.reference === laborRef || e.reference === fuelRef);
+      const oldVouchers = data.vouchers.filter((v) => v.reference === laborRef || v.reference === fuelRef);
+      if (oldCropExpenses.length) {
+        update('cropExpenses', data.cropExpenses.filter((e) => e.reference !== laborRef && e.reference !== fuelRef));
+        oldCropExpenses.forEach((e) => deleteRow('cropExpenses', e.id).catch(() => {}));
+      }
+      if (oldExpenses.length) {
+        update('expenses', data.expenses.filter((e) => e.reference !== laborRef && e.reference !== fuelRef));
+        oldExpenses.forEach((e) => deleteRow('expenses', e.id).catch(() => {}));
+      }
+      if (oldVouchers.length) {
+        update('vouchers', data.vouchers.filter((v) => v.reference !== laborRef && v.reference !== fuelRef));
+        oldVouchers.forEach((v) => deleteRow('vouchers', v.id).catch(() => {}));
+      }
+    }
+
+    if (finalAttendance.amount > 0 && allocation) {
       const w = data.workers.find((x) => x.id === finalAttendance.workerId);
       const workerName = w?.name || 'Worker';
 
@@ -548,6 +590,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           category: 'Labor',
           description: `Labor — ${workerName} (${finalAttendance.hours}h)${allocation.activity ? ` — ${allocation.activity}` : ''}`,
           amount: finalAttendance.amount,
+          reference: laborRef,
         };
         update('cropExpenses', [ce, ...data.cropExpenses]);
         upsertRow('cropExpenses', ce as never).catch(() => {});
@@ -592,7 +635,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
       }
     }
 
-    if (!edit && (f.fuelTransportAllowance || 0) > 0) {
+    if ((f.fuelTransportAllowance || 0) > 0) {
       const w = data.workers.find((x) => x.id === f.workerId);
       const workerName = w?.name || 'Worker';
 
@@ -605,6 +648,7 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           category: 'Fuel/Transport',
           description: `Fuel/Transport — ${workerName} — ${crop?.name || ''}`,
           amount: f.fuelTransportAllowance!,
+          reference: fuelRef,
         };
         update('cropExpenses', [ce, ...data.cropExpenses]);
         upsertRow('cropExpenses', ce as never).catch(() => {});

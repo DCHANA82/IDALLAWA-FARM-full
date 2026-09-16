@@ -41,6 +41,7 @@ export interface CropExpense {
   category: string;        // Seeds, Land Preparation, Fertilizer, Harvesting, Maintenance...
   description: string;
   amount: number;
+  reference?: string;      // links to source record (e.g. LABOR-<attendanceId>)
 }
 
 export interface CropHarvest {

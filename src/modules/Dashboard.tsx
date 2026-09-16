@@ -38,7 +38,7 @@ function AdminDashboard({ data, user, onNavigate }: { data: ReturnType<typeof us
   const topCrops = [...allCropPnL(data)].sort((a, b) => b.profit - a.profit).slice(0, 4);
   const totalCapex = data.farmDevelopments.reduce((s, d) => s + d.totalCost, 0);
   const annualDepreciation = data.farmDevelopments.reduce((s, d) => s + (d.lifespanYears > 0 ? d.totalCost / d.lifespanYears : 0), 0);
-  const totalExpenses = data.expenses.reduce((s, e) => s + e.amount, 0) + data.cropExpenses.reduce((s, e) => s + e.amount, 0);
+  const totalExpenses = overall.cost;
   const totalRevenue = overall.revenue;
 
   // System alerts

@@ -28,10 +28,10 @@ function fromCrop(c: Crop): Record<string, unknown> {
 }
 
 function toCropExpense(r: Record<string, unknown>): CropExpense {
-  return { id: r.id as string, cropId: r.crop_id as string, date: r.date as string, category: r.category as string, description: r.description as string, amount: Number(r.amount) };
+  return { id: r.id as string, cropId: r.crop_id as string, date: r.date as string, category: r.category as string, description: r.description as string, amount: Number(r.amount), reference: (r.reference as string) || undefined };
 }
 function fromCropExpense(e: CropExpense): Record<string, unknown> {
-  return { id: e.id, crop_id: e.cropId, date: e.date, category: e.category, description: e.description, amount: e.amount };
+  return { id: e.id, crop_id: e.cropId, date: e.date, category: e.category, description: e.description, amount: e.amount, reference: e.reference || null };
 }
 
 function toCropHarvest(r: Record<string, unknown>): CropHarvest {
@@ -116,7 +116,9 @@ function toAttendance(r: Record<string, unknown>): Attendance {
       allocationType: allocType as 'CROP' | 'FARM_DEVELOPMENT',
       cropId: (r.crop_id as string) || undefined,
       plotId: (r.plot_id as string) || undefined,
+      activity: (r.activity as string) || undefined,
       developmentCategory: (r.development_category as string) || undefined,
+      workDetails: (r.work_details as string) || undefined,
     } : undefined,
   };
 }
@@ -138,7 +140,9 @@ function fromAttendance(a: Attendance): Record<string, unknown> {
     allocation_type: a.expenseAllocation?.allocationType || null,
     crop_id: a.expenseAllocation?.cropId || null,
     plot_id: a.expenseAllocation?.plotId || null,
+    activity: a.expenseAllocation?.activity || null,
     development_category: a.expenseAllocation?.developmentCategory || null,
+    work_details: a.expenseAllocation?.workDetails || null,
   };
 }
 

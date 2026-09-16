@@ -47,7 +47,7 @@ export function AdvancesTab() {
           title="Employee Advances"
           subtitle="Track advances given to employees and recover from salary payments"
           icon={<HandCoins size={18} />}
-          action={isAdmin && <Button size="sm" icon={<Plus size={14} />} onClick={() => setGiveModal(true)}>Give Advance</Button>}
+          action={isAdmin && <div className="flex gap-2"><Button size="sm" variant="outline" icon={<TrendingDown size={14} />} onClick={() => setRecoverModal(true)}>Recover Advance</Button><Button size="sm" icon={<Plus size={14} />} onClick={() => setGiveModal(true)}>Give Advance</Button></div>}
         />
         <DataTable
           rows={data.employeeAdvances}
