@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Fuel, Award, Calculator, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Users, Printer, CalendarDays, Wallet, Download, Sprout, Hammer, Fuel, Award, Calculator, Pencil, Trash2, HandCoins, History, BookOpen, CheckCircle2 } from 'lucide-react';
 import { useStore, newId, upsertRow } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { LKR, fmtDate, todayISO, downloadFile, toCSV } from '@/lib/format';
-import { workerPayout, workerPayoutBreakdown, payrollMonthTotals } from '@/lib/calc';
+import { workerPayout, workerPayoutBreakdown, payrollMonthTotals, workerOutstandingAdvances, workerTotalOutstanding, workerAdvanceHistory, advanceRecoveriesFor, workerRecoveryHistory, computeAdvanceStatus, recomputeAdvanceBalances, eligibleAdvancesForRecovery, suggestAdvanceRecovery, workerSalaryPayments, workerPaymentsForMonth, isPaymentDuplicate, payrollReportData, workerAdvanceLedger } from '@/lib/calc';
 import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmDialog } from '@/components/ui';
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable, StatusBadge } from '@/components/DataTable';
@@ -11,9 +11,10 @@ import { TabBar } from '@/components/TabBar';
 import { printContent, VoucherPrint, PayslipPrint } from '@/components/print';
 import type { PayslipBreakdown } from '@/components/print';
 import { useToast } from '@/components/toast';
-import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType } from '@/lib/types';
+import { AdvancesTab, PaymentsTab } from '@/components/PayrollTabs';
+import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType, EmployeeAdvance, AdvanceRecovery, SalaryPayment, AdvanceRecoveryTarget, SalaryType, PaymentMethod, AdvanceStatus } from '@/lib/types';
 
-type Tab = 'workers' | 'attendance' | 'settlement' | 'vouchers';
+type Tab = 'workers' | 'attendance' | 'settlement' | 'advances' | 'payments' | 'vouchers';
 
 const DEVELOPMENT_CATEGORIES = [
   'Land Preparation',
@@ -58,6 +59,8 @@ export function LaborModule() {
           { key: 'workers' as Tab, label: 'Workers' },
           { key: 'attendance' as Tab, label: 'Attendance & Tasks' },
           { key: 'settlement' as Tab, label: 'Month-End Settlement' },
+          { key: 'advances' as Tab, label: 'Advances' },
+          { key: 'payments' as Tab, label: 'Payment History' },
           { key: 'vouchers' as Tab, label: 'Payment Vouchers' },
         ]}
         value={tab}
@@ -114,6 +117,14 @@ export function LaborModule() {
 
       {tab === 'settlement' && (
         <SettlementTab payMonth={payMonth} setPayMonth={setPayMonth} settlementWorkerId={settlementWorkerId} setSettlementWorkerId={setSettlementWorkerId} />
+      )}
+
+      {tab === 'advances' && (
+        <AdvancesTab />
+      )}
+
+      {tab === 'payments' && (
+        <PaymentsTab />
       )}
 
       {tab === 'vouchers' && (
@@ -524,7 +535,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
     const finalAttendance = recompute({ ...f, expenseAllocation: allocation });
     save('attendance', finalAttendance, edit ? 'Attendance updated' : 'Attendance added');
 
-    // Auto-sync: only for new entries with a positive payout and an allocation
     if (!edit && finalAttendance.amount > 0 && allocation) {
       const w = data.workers.find((x) => x.id === finalAttendance.workerId);
       const workerName = w?.name || 'Worker';
@@ -582,7 +592,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
       }
     }
 
-    // Sync fuel/transport allowance as a separate expense
     if (!edit && (f.fuelTransportAllowance || 0) > 0) {
       const w = data.workers.find((x) => x.id === f.workerId);
       const workerName = w?.name || 'Worker';
@@ -718,7 +727,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           <span className="text-xs text-neutral-500">පිරිවැය වර්ගය</span>
         </div>
 
-        {/* Toggle Tabs */}
         <div className="grid grid-cols-2 gap-3 mb-4">
           <button
             type="button"
@@ -748,7 +756,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           </button>
         </div>
 
-        {/* Dynamic Fields — Crop Specific */}
         {allocType === 'CROP' && (
           <div className="grid sm:grid-cols-3 gap-3">
             <Select label="Select Crop / වගාව *" value={cropId} error={errors.cropId} onChange={(e) => { setCropId(e.target.value); const c = data.crops.find((x) => x.id === e.target.value); setPlotId(c?.plot || ''); }}>
@@ -763,7 +770,6 @@ function AttendanceModal({ edit, onClose }: { edit?: Attendance; onClose: () => 
           </div>
         )}
 
-        {/* Dynamic Fields — Farm Development */}
         {allocType === 'FARM_DEVELOPMENT' && (
           <div className="grid sm:grid-cols-2 gap-3">
             <Select label="Development Category / සංවර්ධන අංශය *" value={devCategory} error={errors.devCategory} onChange={(e) => setDevCategory(e.target.value)}>

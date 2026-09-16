@@ -1,14 +1,14 @@
 import { useRef, useState, useMemo } from 'react';
-import { Download, FileSpreadsheet, FileText, Upload, Database, Sparkles, TrendingUp, Sprout, BookOpen, BarChart3, Hammer } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Upload, Database, Sparkles, TrendingUp, Sprout, BookOpen, BarChart3, Hammer, Wallet } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { LKR, downloadFile, toCSV, fmtDate } from '@/lib/format';
-import { nurseryTotals, farmOverallPnL, ledgerBalance } from '@/lib/calc';
+import { nurseryTotals, farmOverallPnL, ledgerBalance, payrollReportData } from '@/lib/calc';
 import { exportCSV, exportAllZip, cropPnLRows, nurseryPnLRows, seasonRows, overallRow, exportPDFviaPrint } from '@/lib/export';
 import { parseCSV, mapImport, mergeImport, sampleCSV, type ImportTarget } from '@/lib/import';
 import { Card, Button, Badge, SectionTitle, Stat, Modal, Select } from '@/components/ui';
 import { DataTable } from '@/components/DataTable';
 import { askAssistant, SUGGESTED_QUERIES } from '@/lib/assistant';
-import type { AppData, Crop, NurseryBatch, Voucher, Expense, LedgerEntry, FarmDevelopment } from '@/lib/types';
+import type { AppData, Crop, NurseryBatch, Voucher, Expense, LedgerEntry, FarmDevelopment, SalaryPayment, EmployeeAdvance, AdvanceRecovery } from '@/lib/types';
 
 interface ReportDef {
   key: string;
@@ -32,7 +32,7 @@ const ALL_REPORTS: ReportDef[] = [
     getRows: (d, f) => {
       let data = d;
       if (f.year) data = filterByYear(d, f.year);
-      if (f.cropId) data = filterByCrop(d, f.cropId);
+      if (f.cropId) data = filterByCrop(data, f.cropId);
       return overallRow(data);
     },
   },
@@ -51,7 +51,7 @@ const ALL_REPORTS: ReportDef[] = [
     getRows: (d, f) => {
       let data = d;
       if (f.year) data = filterByYear(d, f.year);
-      if (f.cropId) data = filterByCrop(d, f.cropId);
+      if (f.cropId) data = filterByCrop(data, f.cropId);
       return cropPnLRows(data);
     },
   },
@@ -61,7 +61,7 @@ const ALL_REPORTS: ReportDef[] = [
     getRows: (d, f) => {
       let data = d;
       if (f.year) data = filterByYear(d, f.year);
-      if (f.batchId) data = filterByBatch(d, f.batchId);
+      if (f.batchId) data = filterByBatch(data, f.batchId);
       return nurseryPnLRows(data);
     },
   },
@@ -101,6 +101,108 @@ const ALL_REPORTS: ReportDef[] = [
       return rows.map((dev: FarmDevelopment) => ({ Name: dev.name, Category: dev.category, 'Implementation Date': dev.implementationDate, 'Total Cost': dev.totalCost, 'Lifespan (yr)': dev.lifespanYears, 'Annual Depreciation': dev.lifespanYears > 0 ? +(dev.totalCost / dev.lifespanYears).toFixed(2) : 0 }));
     },
   },
+  {
+    key: 'payroll', title: 'Payroll Summary', desc: 'Monthly/daily salary, advances, deductions, net pay', icon: <Wallet size={18} />,
+    columns: [
+      { key: 'Month', header: 'Month' },
+      { key: 'Monthly Salary', header: 'Monthly Salary' },
+      { key: 'Daily Salary', header: 'Daily Salary' },
+      { key: 'Allowances', header: 'Allowances' },
+      { key: 'Total Earnings', header: 'Total Earnings' },
+      { key: 'Advances Given', header: 'Advances Given' },
+      { key: 'Advances Recovered', header: 'Advances Recovered' },
+      { key: 'Other Deductions', header: 'Other Deductions' },
+      { key: 'Net Payments', header: 'Net Payments' },
+      { key: 'Outstanding Advances', header: 'Outstanding Advances' },
+    ],
+    getRows: (d, f) => {
+      const months = new Set<string>();
+      d.salaryPayments.forEach((p) => months.add(p.payMonth));
+      d.employeeAdvances.forEach((a) => months.add(a.advanceDate.slice(0, 7)));
+      const sorted = Array.from(months).sort().reverse();
+      return sorted.filter(m => !f.year || m.startsWith(f.year)).map((m) => {
+        const r = payrollReportData(d, m);
+        return {
+          Month: m,
+          'Monthly Salary': r.monthlySalary,
+          'Daily Salary': r.dailySalary,
+          Allowances: r.dailyAllowances,
+          'Total Earnings': r.totalEarnings,
+          'Advances Given': r.advancesGiven,
+          'Advances Recovered': r.advancesRecovered,
+          'Other Deductions': r.otherDeductions,
+          'Net Payments': r.netPayments,
+          'Outstanding Advances': r.outstandingAdvances,
+        };
+      });
+    },
+  },
+  {
+    key: 'salary_payments', title: 'Salary Payment History', desc: 'All salary payments with work/payment dates', icon: <FileText size={18} />,
+    columns: [
+      { key: 'Worker', header: 'Worker' },
+      { key: 'Type', header: 'Type' },
+      { key: 'Work Date', header: 'Work Date' },
+      { key: 'Payment Date', header: 'Payment Date' },
+      { key: 'Gross', header: 'Gross' },
+      { key: 'Allowances', header: 'Allowances' },
+      { key: 'Advance Ded.', header: 'Advance Ded.' },
+      { key: 'Other Ded.', header: 'Other Ded.' },
+      { key: 'Net', header: 'Net' },
+      { key: 'Method', header: 'Method' },
+      { key: 'Ref', header: 'Ref' },
+    ],
+    getRows: (d, f) => {
+      let rows = d.salaryPayments;
+      if (f.year) rows = rows.filter((p) => p.payMonth.startsWith(f.year));
+      return rows.map((p: SalaryPayment) => {
+        const w = d.workers.find((x) => x.id === p.workerId);
+        return {
+          Worker: w?.name || p.workerId,
+          Type: p.salaryType,
+          'Work Date': p.workDate,
+          'Payment Date': p.paymentDate,
+          Gross: p.grossAmount,
+          Allowances: p.allowances,
+          'Advance Ded.': p.advanceDeduction,
+          'Other Ded.': p.otherDeductions,
+          Net: p.netAmount,
+          Method: p.paymentMethod,
+          Ref: p.reference || '',
+        };
+      });
+    },
+  },
+  {
+    key: 'advance_ledger', title: 'Advance Ledger', desc: 'All advances with outstanding balances', icon: <BookOpen size={18} />,
+    columns: [
+      { key: 'Ref', header: 'Ref' },
+      { key: 'Worker', header: 'Worker' },
+      { key: 'Date', header: 'Date' },
+      { key: 'Amount', header: 'Amount' },
+      { key: 'Recovered', header: 'Recovered' },
+      { key: 'Outstanding', header: 'Outstanding' },
+      { key: 'Status', header: 'Status' },
+      { key: 'Recover From', header: 'Recover From' },
+    ],
+    getRows: (d, f) => {
+      let rows = d.employeeAdvances;
+      if (f.year) rows = rows.filter((a) => a.advanceDate.startsWith(f.year));
+      return rows.map((a: EmployeeAdvance) => {
+        const w = d.workers.find((x) => x.id === a.workerId);
+        return {
+          Ref: a.reference || a.id,
+          Worker: w?.name || a.workerId,
+          Date: a.advanceDate,
+          Amount: a.amount,
+          Recovered: a.recoveredAmount,
+          Outstanding: a.remainingBalance,
+          Status: a.status,
+          'Recover From': a.recoveryTarget,
+        };
+      });
+    },
+  },
 ];
 
 function filterByYear(data: AppData, year: string): AppData {
@@ -119,6 +221,9 @@ function filterByYear(data: AppData, year: string): AppData {
     ledger: data.ledger.filter((l) => l.date.startsWith(year)),
     expenses: data.expenses.filter((e) => e.date.startsWith(year)),
     farmDevelopments: data.farmDevelopments.filter((d) => d.implementationDate.startsWith(year)),
+    employeeAdvances: data.employeeAdvances.filter((a) => a.advanceDate.startsWith(year)),
+    advanceRecoveries: data.advanceRecoveries.filter((r) => r.recoveryDate.startsWith(year)),
+    salaryPayments: data.salaryPayments.filter((p) => p.payMonth.startsWith(year)),
   };
 }
 
@@ -171,6 +276,7 @@ export function ReportsModule() {
     data.vouchers.forEach((v) => ys.add(v.date.slice(0, 4)));
     data.expenses.forEach((e) => ys.add(e.date.slice(0, 4)));
     data.nurseryBatches.forEach((b) => ys.add(b.startDate.slice(0, 4)));
+    data.salaryPayments.forEach((p) => ys.add(p.payMonth.slice(0, 4)));
     return Array.from(ys).sort().reverse();
   }, [data]);
 

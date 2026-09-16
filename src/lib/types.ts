@@ -106,6 +106,59 @@ export interface Worker {
   defaultDailyRate?: number;    // explicit default daily rate (DAILY/HYBRID)
 }
 
+// ─── Payroll: Advances, Recoveries, Salary Payments ───
+
+export type AdvanceRecoveryTarget = 'DAILY' | 'MONTHLY' | 'ANY';
+export type AdvanceStatus = 'Outstanding' | 'Partially Recovered' | 'Fully Recovered';
+export type SalaryType = 'DAILY' | 'MONTHLY';
+export type PaymentStatus = 'Paid' | 'Pending';
+
+export interface EmployeeAdvance {
+  id: string;
+  workerId: string;
+  advanceDate: string;          // ISO date when advance was given
+  amount: number;               // original advance amount
+  recoveredAmount: number;      // total recovered so far
+  remainingBalance: number;     // amount still outstanding
+  paymentMethod: PaymentMethod;
+  reference?: string;           // note/reference
+  recoveryTarget: AdvanceRecoveryTarget;  // where to recover from
+  status: AdvanceStatus;
+  createdAt?: string;
+}
+
+export interface AdvanceRecovery {
+  id: string;
+  advanceId: string;            // links to EmployeeAdvance
+  workerId: string;
+  recoveryDate: string;         // when the deduction happened
+  amount: number;               // amount recovered
+  source: SalaryType;           // DAILY or MONTHLY — which salary type it was deducted from
+  salaryPaymentId?: string;     // link to the salary payment that triggered this recovery
+  reference?: string;
+}
+
+export interface SalaryPayment {
+  id: string;
+  workerId: string;
+  salaryType: SalaryType;       // DAILY | MONTHLY
+  workDate: string;             // date work was performed (or pay month for monthly)
+  paymentDate: string;          // date payment was actually made
+  payMonth: string;             // YYYY-MM
+  grossAmount: number;          // gross earnings
+  allowances: number;           // total allowances
+  advanceDeduction: number;     // advance recovered from this payment
+  otherDeductions: number;      // other deductions
+  netAmount: number;            // net amount paid
+  paymentMethod: PaymentMethod;
+  reference?: string;
+  daysWorked: number;           // for daily payments, number of days covered
+  status: PaymentStatus;
+  attendanceIds?: string;       // comma-separated attendance IDs (for daily payments)
+}
+
+export type PaymentMethod = 'Cash' | 'Cheque' | 'Bank Transfer';
+
 export type AllocationType = 'CROP' | 'FARM_DEVELOPMENT';
 
 export interface ExpenseAllocation {
@@ -237,4 +290,7 @@ export interface AppData {
   ledger: LedgerEntry[];
   expenses: Expense[];
   farmDevelopments: FarmDevelopment[];
+  employeeAdvances: EmployeeAdvance[];
+  advanceRecoveries: AdvanceRecovery[];
+  salaryPayments: SalaryPayment[];
 }

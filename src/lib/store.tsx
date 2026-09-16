@@ -23,6 +23,7 @@ interface StoreCtx {
   nextVoucherNo: () => string;
   nextInvoiceNo: () => string;
   nextBatchCode: () => string;
+  nextAdvanceNo: () => string;
 }
 
 const Ctx = createContext<StoreCtx | null>(null);
@@ -142,11 +143,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return 'NUR-26-' + String(n).padStart(2, '0');
   }, [data.nurseryBatches]);
 
+  const nextAdvanceNo = useCallback(() => {
+    const n = (data.employeeAdvances?.length ?? 0) + 1;
+    return 'ADV-2026-' + String(n).padStart(3, '0');
+  }, [data.employeeAdvances]);
+
   const value = useMemo<StoreCtx>(() => ({
     data, settings, loading, error,
     update, patch, save, remove, saveProfile, saveSettings,
-    reset, replaceAll, nextVoucherNo, nextInvoiceNo, nextBatchCode,
-  }), [data, settings, loading, error, update, patch, save, remove, saveProfile, saveSettings, reset, replaceAll, nextVoucherNo, nextInvoiceNo, nextBatchCode]);
+    reset, replaceAll, nextVoucherNo, nextInvoiceNo, nextBatchCode, nextAdvanceNo,
+  }), [data, settings, loading, error, update, patch, save, remove, saveProfile, saveSettings, reset, replaceAll, nextVoucherNo, nextInvoiceNo, nextBatchCode, nextAdvanceNo]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

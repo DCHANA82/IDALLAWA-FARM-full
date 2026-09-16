@@ -3,6 +3,7 @@ import type {
   AppData, AppSettings, Crop, CropExpense, CropHarvest, NurseryBatch, NurseryCost,
   NurserySale, NurseryTransfer, Worker, Attendance, Voucher, LedgerEntry, Expense, StaffUser,
   FarmDevelopment, PermissionEntry, PermissionModule, ModuleAccess,
+  EmployeeAdvance, AdvanceRecovery, SalaryPayment,
 } from './types';
 
 // ─── Column mapping helpers ───
@@ -69,10 +70,29 @@ function fromNurseryTransfer(t: NurseryTransfer): Record<string, unknown> {
 }
 
 function toWorker(r: Record<string, unknown>): Worker {
-  return { id: r.id as string, name: r.name as string, type: r.type as Worker['type'], phone: (r.phone as string) || undefined, role: r.role as string, monthlyBasic: Number(r.monthly_basic), allowances: Number(r.allowances), dailyWage: Number(r.daily_wage) };
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    type: r.type as Worker['type'],
+    employmentType: (r.employment_type as Worker['employmentType']) || (r.type === 'Permanent' ? 'MONTHLY' : 'DAILY'),
+    phone: (r.phone as string) || undefined,
+    role: r.role as string,
+    monthlyBasic: Number(r.monthly_basic),
+    allowances: Number(r.allowances),
+    dailyWage: Number(r.daily_wage),
+    baseMonthlySalary: r.base_monthly_salary != null ? Number(r.base_monthly_salary) : undefined,
+    defaultDailyRate: r.default_daily_rate != null ? Number(r.default_daily_rate) : undefined,
+  };
 }
 function fromWorker(w: Worker): Record<string, unknown> {
-  return { id: w.id, name: w.name, type: w.type, phone: w.phone || '', role: w.role, monthly_basic: w.monthlyBasic, allowances: w.allowances, daily_wage: w.dailyWage };
+  return {
+    id: w.id, name: w.name, type: w.type,
+    employment_type: w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY'),
+    phone: w.phone || '', role: w.role,
+    monthly_basic: w.monthlyBasic, allowances: w.allowances, daily_wage: w.dailyWage,
+    base_monthly_salary: w.baseMonthlySalary ?? null,
+    default_daily_rate: w.defaultDailyRate ?? null,
+  };
 }
 
 function toAttendance(r: Record<string, unknown>): Attendance {
@@ -159,12 +179,89 @@ function fromFarmDevelopment(d: FarmDevelopment): Record<string, unknown> {
   return { id: d.id, name: d.name, category: d.category, total_cost: d.totalCost, implementation_date: d.implementationDate, lifespan_years: d.lifespanYears, linked_plot_id: d.linkedPlotId || null, description: d.description || null };
 }
 
+function toEmployeeAdvance(r: Record<string, unknown>): EmployeeAdvance {
+  return {
+    id: r.id as string,
+    workerId: r.worker_id as string,
+    advanceDate: r.advance_date as string,
+    amount: Number(r.amount),
+    recoveredAmount: Number(r.recovered_amount),
+    remainingBalance: Number(r.remaining_balance),
+    paymentMethod: (r.payment_method as EmployeeAdvance['paymentMethod']) || 'Cash',
+    reference: (r.reference as string) || undefined,
+    recoveryTarget: (r.recovery_target as EmployeeAdvance['recoveryTarget']) || 'ANY',
+    status: (r.status as EmployeeAdvance['status']) || 'Outstanding',
+    createdAt: (r.created_at as string) || undefined,
+  };
+}
+function fromEmployeeAdvance(a: EmployeeAdvance): Record<string, unknown> {
+  return {
+    id: a.id, worker_id: a.workerId, advance_date: a.advanceDate,
+    amount: a.amount, recovered_amount: a.recoveredAmount, remaining_balance: a.remainingBalance,
+    payment_method: a.paymentMethod, reference: a.reference || null,
+    recovery_target: a.recoveryTarget, status: a.status,
+  };
+}
+
+function toAdvanceRecovery(r: Record<string, unknown>): AdvanceRecovery {
+  return {
+    id: r.id as string,
+    advanceId: r.advance_id as string,
+    workerId: r.worker_id as string,
+    recoveryDate: r.recovery_date as string,
+    amount: Number(r.amount),
+    source: (r.source as AdvanceRecovery['source']) || 'DAILY',
+    salaryPaymentId: (r.salary_payment_id as string) || undefined,
+    reference: (r.reference as string) || undefined,
+  };
+}
+function fromAdvanceRecovery(r: AdvanceRecovery): Record<string, unknown> {
+  return {
+    id: r.id, advance_id: r.advanceId, worker_id: r.workerId,
+    recovery_date: r.recoveryDate, amount: r.amount, source: r.source,
+    salary_payment_id: r.salaryPaymentId || null, reference: r.reference || null,
+  };
+}
+
+function toSalaryPayment(r: Record<string, unknown>): SalaryPayment {
+  return {
+    id: r.id as string,
+    workerId: r.worker_id as string,
+    salaryType: (r.salary_type as SalaryPayment['salaryType']) || 'DAILY',
+    workDate: r.work_date as string,
+    paymentDate: r.payment_date as string,
+    payMonth: r.pay_month as string,
+    grossAmount: Number(r.gross_amount),
+    allowances: Number(r.allowances),
+    advanceDeduction: Number(r.advance_deduction),
+    otherDeductions: Number(r.other_deductions),
+    netAmount: Number(r.net_amount),
+    paymentMethod: (r.payment_method as SalaryPayment['paymentMethod']) || 'Cash',
+    reference: (r.reference as string) || undefined,
+    daysWorked: Number(r.days_worked) || 0,
+    status: (r.status as SalaryPayment['status']) || 'Paid',
+    attendanceIds: (r.attendance_ids as string) || undefined,
+  };
+}
+function fromSalaryPayment(p: SalaryPayment): Record<string, unknown> {
+  return {
+    id: p.id, worker_id: p.workerId, salary_type: p.salaryType,
+    work_date: p.workDate, payment_date: p.paymentDate, pay_month: p.payMonth,
+    gross_amount: p.grossAmount, allowances: p.allowances,
+    advance_deduction: p.advanceDeduction, other_deductions: p.otherDeductions,
+    net_amount: p.netAmount, payment_method: p.paymentMethod,
+    reference: p.reference || null, days_worked: p.daysWorked,
+    status: p.status, attendance_ids: p.attendanceIds || null,
+  };
+}
+
 // ─── Load all data from Supabase ───
 
 export async function loadAllData(): Promise<AppData> {
   const [
     profile, crops, cropExp, cropHarv, nurBatch, nurCost, nurSale, nurTrans,
     workers, attend, vouchers, ledger, expenses, farmDev,
+    empAdv, advRec, salPay,
   ] = await Promise.all([
     supabase.from('farm_profile').select('*').eq('id', 'singleton').maybeSingle(),
     supabase.from('crops').select('*'),
@@ -180,9 +277,12 @@ export async function loadAllData(): Promise<AppData> {
     supabase.from('ledger_entries').select('*'),
     supabase.from('expenses').select('*'),
     supabase.from('farm_developments').select('*'),
+    supabase.from('employee_advances').select('*'),
+    supabase.from('advance_recoveries').select('*'),
+    supabase.from('salary_payments').select('*'),
   ]);
 
-  const errMsg = [profile.error, crops.error, cropExp.error, cropHarv.error, nurBatch.error, nurCost.error, nurSale.error, nurTrans.error, workers.error, attend.error, vouchers.error, ledger.error, expenses.error, farmDev.error].find(Boolean);
+  const errMsg = [profile.error, crops.error, cropExp.error, cropHarv.error, nurBatch.error, nurCost.error, nurSale.error, nurTrans.error, workers.error, attend.error, vouchers.error, ledger.error, expenses.error, farmDev.error, empAdv.error, advRec.error, salPay.error].find(Boolean);
   if (errMsg) throw errMsg;
 
   return {
@@ -214,6 +314,9 @@ export async function loadAllData(): Promise<AppData> {
     ledger: (ledger.data as Record<string, unknown>[] || []).map(toLedgerEntry),
     expenses: (expenses.data as Record<string, unknown>[] || []).map(toExpense),
     farmDevelopments: (farmDev.data as Record<string, unknown>[] || []).map(toFarmDevelopment),
+    employeeAdvances: (empAdv.data as Record<string, unknown>[] || []).map(toEmployeeAdvance),
+    advanceRecoveries: (advRec.data as Record<string, unknown>[] || []).map(toAdvanceRecovery),
+    salaryPayments: (salPay.data as Record<string, unknown>[] || []).map(toSalaryPayment),
   };
 }
 
@@ -222,7 +325,8 @@ export async function loadAllData(): Promise<AppData> {
 type TableKey =
   | 'crops' | 'crop_expenses' | 'crop_harvests' | 'nursery_batches'
   | 'nursery_costs' | 'nursery_sales' | 'nursery_transfers' | 'workers'
-  | 'attendance' | 'vouchers' | 'ledger_entries' | 'expenses' | 'farm_developments';
+  | 'attendance' | 'vouchers' | 'ledger_entries' | 'expenses' | 'farm_developments'
+  | 'employee_advances' | 'advance_recoveries' | 'salary_payments';
 
 const tableMap: Record<keyof AppData, TableKey | null> = {
   farmName: null, owner: null, profilePhoto: null, logo: null,
@@ -233,6 +337,9 @@ const tableMap: Record<keyof AppData, TableKey | null> = {
   workers: 'workers', attendance: 'attendance', vouchers: 'vouchers',
   ledger: 'ledger_entries', expenses: 'expenses',
   farmDevelopments: 'farm_developments',
+  employeeAdvances: 'employee_advances',
+  advanceRecoveries: 'advance_recoveries',
+  salaryPayments: 'salary_payments',
 };
 
 const converters: Record<TableKey, { to: (item: never) => Record<string, unknown> }> = {
@@ -249,6 +356,9 @@ const converters: Record<TableKey, { to: (item: never) => Record<string, unknown
   ledger_entries: { to: fromLedgerEntry as never },
   expenses: { to: fromExpense as never },
   farm_developments: { to: fromFarmDevelopment as never },
+  employee_advances: { to: fromEmployeeAdvance as never },
+  advance_recoveries: { to: fromAdvanceRecovery as never },
+  salary_payments: { to: fromSalaryPayment as never },
 };
 
 export async function upsertRow<K extends keyof AppData>(key: K, item: AppData[K]): Promise<void> {
@@ -288,6 +398,7 @@ export async function seedAllData(data: AppData): Promise<void> {
     'crops', 'cropExpenses', 'cropHarvests', 'nurseryBatches', 'nurseryCosts',
     'nurserySales', 'nurseryTransfers', 'workers', 'attendance', 'vouchers',
     'ledger', 'expenses', 'farmDevelopments',
+    'employeeAdvances', 'advanceRecoveries', 'salaryPayments',
   ];
   for (const k of keys) {
     await bulkSeed(k, data[k]);

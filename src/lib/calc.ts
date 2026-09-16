@@ -1,4 +1,4 @@
-import type { AppData, Crop, NurseryBatch, Worker } from './types';
+import type { AppData, Crop, NurseryBatch, Worker, EmployeeAdvance, AdvanceRecovery, SalaryPayment, AdvanceRecoveryTarget } from './types';
 
 export interface CropPnL {
   crop: Crop;
@@ -155,6 +155,203 @@ export function workerPayoutBreakdown(data: AppData, worker: Worker, monthISO: s
   const grossEarnings = dailyWages + fuel + attendanceBonus + other;
   const totalDeductions = advances;
   return { baseSalary: 0, dailyWages, daysWorked, fuel, attendanceBonus, other, advances, grossEarnings, totalDeductions, netPayable: grossEarnings - totalDeductions, total: grossEarnings - totalDeductions };
+}
+
+// ─── Advance system calculations ───
+
+export function workerOutstandingAdvances(data: AppData, workerId: string): EmployeeAdvance[] {
+  return data.employeeAdvances.filter(
+    (a) => a.workerId === workerId && a.status !== 'Fully Recovered' && a.remainingBalance > 0
+  );
+}
+
+export function workerTotalOutstanding(data: AppData, workerId: string): number {
+  return workerOutstandingAdvances(data, workerId).reduce((s, a) => s + a.remainingBalance, 0);
+}
+
+export function workerAdvanceHistory(data: AppData, workerId: string): EmployeeAdvance[] {
+  return data.employeeAdvances
+    .filter((a) => a.workerId === workerId)
+    .sort((a, b) => b.advanceDate.localeCompare(a.advanceDate));
+}
+
+export function advanceRecoveriesFor(data: AppData, advanceId: string): AdvanceRecovery[] {
+  return data.advanceRecoveries
+    .filter((r) => r.advanceId === advanceId)
+    .sort((a, b) => b.recoveryDate.localeCompare(a.recoveryDate));
+}
+
+export function workerRecoveryHistory(data: AppData, workerId: string): AdvanceRecovery[] {
+  return data.advanceRecoveries
+    .filter((r) => r.workerId === workerId)
+    .sort((a, b) => b.recoveryDate.localeCompare(a.recoveryDate));
+}
+
+export function computeAdvanceStatus(recoveredAmount: number, originalAmount: number): EmployeeAdvance['status'] {
+  if (recoveredAmount >= originalAmount) return 'Fully Recovered';
+  if (recoveredAmount > 0) return 'Partially Recovered';
+  return 'Outstanding';
+}
+
+export function recomputeAdvanceBalances(advance: EmployeeAdvance, recoveries: AdvanceRecovery[]): EmployeeAdvance {
+  const recovered = recoveries
+    .filter((r) => r.advanceId === advance.id)
+    .reduce((s, r) => s + r.amount, 0);
+  const remaining = Math.max(0, advance.amount - recovered);
+  return {
+    ...advance,
+    recoveredAmount: recovered,
+    remainingBalance: remaining,
+    status: computeAdvanceStatus(recovered, advance.amount),
+  };
+}
+
+export function eligibleAdvancesForRecovery(
+  data: AppData,
+  workerId: string,
+  source: 'DAILY' | 'MONTHLY'
+): EmployeeAdvance[] {
+  return data.employeeAdvances
+    .filter((a) => {
+      if (a.workerId !== workerId || a.remainingBalance <= 0) return false;
+      if (a.recoveryTarget === 'ANY') return true;
+      if (a.recoveryTarget === 'DAILY') return source === 'DAILY';
+      if (a.recoveryTarget === 'MONTHLY') return source === 'MONTHLY';
+      return true;
+    })
+    .sort((a, b) => a.advanceDate.localeCompare(b.advanceDate));
+}
+
+export function suggestAdvanceRecovery(
+  data: AppData,
+  workerId: string,
+  source: 'DAILY' | 'MONTHLY',
+  maxAmount: number
+): { advanceId: string; amount: number }[] {
+  const eligible = eligibleAdvancesForRecovery(data, workerId, source);
+  const suggestions: { advanceId: string; amount: number }[] = [];
+  let remaining = maxAmount;
+  for (const adv of eligible) {
+    if (remaining <= 0) break;
+    const deduct = Math.min(adv.remainingBalance, remaining);
+    if (deduct > 0) {
+      suggestions.push({ advanceId: adv.id, amount: deduct });
+      remaining -= deduct;
+    }
+  }
+  return suggestions;
+}
+
+// ─── Salary payment calculations ───
+
+export function workerSalaryPayments(data: AppData, workerId: string): SalaryPayment[] {
+  return data.salaryPayments
+    .filter((p) => p.workerId === workerId)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
+export function workerPaymentsForMonth(data: AppData, workerId: string, monthISO: string): SalaryPayment[] {
+  return data.salaryPayments
+    .filter((p) => p.workerId === workerId && p.payMonth === monthISO)
+    .sort((a, b) => b.paymentDate.localeCompare(a.paymentDate));
+}
+
+export function isPaymentDuplicate(data: AppData, workerId: string, salaryType: 'DAILY' | 'MONTHLY', workDate: string, attendanceIds?: string): boolean {
+  return data.salaryPayments.some(
+    (p) => p.workerId === workerId && p.salaryType === salaryType && p.workDate === workDate &&
+    (attendanceIds ? p.attendanceIds === attendanceIds : true)
+  );
+}
+
+// ─── Payroll report aggregates ───
+
+export function payrollReportData(data: AppData, monthISO: string) {
+  const monthPayments = data.salaryPayments.filter((p) => p.payMonth === monthISO);
+  const dailyPayments = monthPayments.filter((p) => p.salaryType === 'DAILY');
+  const monthlyPayments = monthPayments.filter((p) => p.salaryType === 'MONTHLY');
+
+  const monthlySalary = monthlyPayments.reduce((s, p) => s + p.grossAmount, 0);
+  const dailySalary = dailyPayments.reduce((s, p) => s + p.grossAmount - p.allowances, 0);
+  const dailyAllowances = dailyPayments.reduce((s, p) => s + p.allowances, 0) + monthlyPayments.reduce((s, p) => s + p.allowances, 0);
+  const totalEarnings = monthPayments.reduce((s, p) => s + p.grossAmount + p.allowances, 0);
+
+  const monthAdvances = data.employeeAdvances.filter((a) => a.advanceDate.startsWith(monthISO));
+  const advancesGiven = monthAdvances.reduce((s, a) => s + a.amount, 0);
+
+  const monthRecoveries = data.advanceRecoveries.filter((r) => r.recoveryDate.startsWith(monthISO));
+  const advancesRecovered = monthRecoveries.reduce((s, r) => s + r.amount, 0);
+
+  const otherDeductions = monthPayments.reduce((s, p) => s + p.otherDeductions, 0);
+  const netPayments = monthPayments.reduce((s, p) => s + p.netAmount, 0);
+
+  const outstandingAdvances = data.employeeAdvances
+    .filter((a) => a.status !== 'Fully Recovered')
+    .reduce((s, a) => s + a.remainingBalance, 0);
+
+  return {
+    monthlySalary,
+    dailySalary,
+    dailyAllowances,
+    totalEarnings,
+    advancesGiven,
+    advancesRecovered,
+    otherDeductions,
+    netPayments,
+    outstandingAdvances,
+    dailyPaymentCount: dailyPayments.length,
+    monthlyPaymentCount: monthlyPayments.length,
+  };
+}
+
+export function workerAdvanceLedger(data: AppData, workerId: string) {
+  const advances = data.employeeAdvances
+    .filter((a) => a.workerId === workerId)
+    .sort((a, b) => a.advanceDate.localeCompare(b.advanceDate));
+  const recoveries = data.advanceRecoveries
+    .filter((r) => r.workerId === workerId)
+    .sort((a, b) => a.recoveryDate.localeCompare(b.recoveryDate));
+
+  type LedgerLine =
+    | { type: 'advance'; date: string; advanceId: string; description: string; debit: number; credit: 0; balance: number }
+    | { type: 'recovery'; date: string; advanceId: string; description: string; debit: 0; credit: number; balance: number };
+
+  const lines: LedgerLine[] = [];
+  let runningBalance = 0;
+
+  const allEvents: { date: string; isAdvance: boolean; advanceId: string; amount: number; ref?: string; source?: string }[] = [
+    ...advances.map((a) => ({ date: a.advanceDate, isAdvance: true, advanceId: a.id, amount: a.amount, ref: a.reference })),
+    ...recoveries.map((r) => ({ date: r.recoveryDate, isAdvance: false, advanceId: r.advanceId, amount: r.amount, ref: r.reference, source: r.source })),
+  ].sort((a, b) => a.date.localeCompare(b.date));
+
+  for (const ev of allEvents) {
+    if (ev.isAdvance) {
+      runningBalance += ev.amount;
+      const adv = advances.find((a) => a.id === ev.advanceId);
+      lines.push({
+        type: 'advance',
+        date: ev.date,
+        advanceId: ev.advanceId,
+        description: `Advance given${ev.ref ? ' — ' + ev.ref : ''}`,
+        debit: ev.amount,
+        credit: 0,
+        balance: runningBalance,
+      });
+    } else {
+      runningBalance = Math.max(0, runningBalance - ev.amount);
+      const adv = advances.find((a) => a.id === ev.advanceId);
+      lines.push({
+        type: 'recovery',
+        date: ev.date,
+        advanceId: ev.advanceId,
+        description: `Recovery from ${ev.source === 'MONTHLY' ? 'monthly salary' : 'daily payment'}${ev.ref ? ' — ' + ev.ref : ''}`,
+        debit: 0,
+        credit: ev.amount,
+        balance: runningBalance,
+      });
+    }
+  }
+
+  return { advances, recoveries, lines, finalBalance: runningBalance };
 }
 
 export function payrollMonthTotals(data: AppData, monthISO: string) {

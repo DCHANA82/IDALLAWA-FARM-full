@@ -16,4 +16,7 @@ export const SEED_DATA: AppData = {
   ledger: [],
   expenses: [],
   farmDevelopments: [],
+  employeeAdvances: [],
+  advanceRecoveries: [],
+  salaryPayments: [],
 };
