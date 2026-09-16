@@ -4,6 +4,7 @@ import { MODULES, modulesForRole, type ModuleKey } from './nav';
 import { useStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import logoAsset from '../Assets/logo.png';
+import paddyAsset from '../Assets/paddy.jpg';
 import type { PermissionModule } from '@/lib/types';
 
 const FALLBACK_PORTRAIT = 'https://images.pexels.com/photos/17168814/pexels-photo-17168814.jpeg?auto=compress&cs=tinysrgb&h=120&w=120';
@@ -64,7 +65,24 @@ export function Shell({ active, onNavigate, children }: { active: ModuleKey; onN
   }, [visibleModules.length]);
 
   return (
-    <div className="min-h-screen flex bg-neutral-50">
+    <div className="min-h-screen flex">
+      {/* Persistent background image — rendered at root level so it survives all re-renders, state updates, and data loads */}
+      {(() => {
+        const bgUrl = data.dashboardBgUrl || paddyAsset;
+        return (
+          <img
+            src={bgUrl}
+            alt=""
+            aria-hidden="true"
+            className="fixed inset-0 w-full h-full object-cover pointer-events-none"
+            style={{
+              filter: `brightness(${data.dashboardBgBrightness ?? 1}) blur(${data.dashboardBgBlur ?? 0}px)`,
+              opacity: data.dashboardBgOverlay ?? 0.12,
+              zIndex: 0,
+            }}
+          />
+        );
+      })()}
       {/* Sidebar */}
       <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-primary-900 text-white transform transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col`}>
         <div className="flex items-center gap-3 px-4 py-5 border-b border-primary-800/60">
@@ -111,7 +129,7 @@ export function Shell({ active, onNavigate, children }: { active: ModuleKey; onN
       {open && <div className="fixed inset-0 z-30 bg-neutral-950/40 lg:hidden" onClick={() => setOpen(false)} />}
 
       {/* Main */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col relative z-10">
         <header className="sticky top-0 z-20 bg-white/85 backdrop-blur border-b border-neutral-200">
           <div className="flex items-center gap-3 px-4 lg:px-6 py-3">
             <button className="lg:hidden p-2 -ml-1 rounded-lg hover:bg-neutral-100 text-neutral-700" onClick={() => setOpen(true)} aria-label="Open menu">
@@ -169,18 +187,7 @@ export function Shell({ active, onNavigate, children }: { active: ModuleKey; onN
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-6 max-w-[1400px] w-full mx-auto animate-fade-in relative">
-          {data.dashboardBgUrl && (
-            <img
-              src={data.dashboardBgUrl}
-              alt=""
-              className="fixed inset-0 -z-10 w-full h-full object-cover pointer-events-none"
-              style={{
-                filter: `brightness(${data.dashboardBgBrightness ?? 1}) blur(${data.dashboardBgBlur ?? 0}px)`,
-                opacity: data.dashboardBgOverlay ?? 0.1,
-              }}
-            />
-          )}
+        <main className="flex-1 p-4 lg:p-6 max-w-[1400px] w-full mx-auto animate-fade-in relative z-10">
           {children}
         </main>
 
