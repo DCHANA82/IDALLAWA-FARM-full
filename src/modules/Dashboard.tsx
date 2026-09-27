@@ -26,7 +26,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (k: ModuleKey) => void }
 // ADMIN EXECUTIVE DASHBOARD
 // ═══════════════════════════════════════════════════════════
 
-function AdminDashboard({ data, user, onNavigate }: { data: ReturnType<typeof useStore>['data']; user: { displayName: string } | null; onNavigate: (k: ModuleKey) => void }) {
+function AdminDashboard({ data, user, onNavigate }: { data: ReturnType<typeof useStore>['data']; user: { displayName: string; role: string } | null; onNavigate: (k: ModuleKey) => void }) {
   const overall = farmOverallPnL(data);
   const nur = nurseryTotals(data);
   const yala = seasonPnL(data, 'Yala');
@@ -83,8 +83,8 @@ function AdminDashboard({ data, user, onNavigate }: { data: ReturnType<typeof us
           <div className="flex items-start gap-4">
             <img src={data.profilePhoto || FALLBACK_PORTRAIT} alt="Farm owner" className="w-20 h-20 rounded-2xl object-cover ring-4 ring-white/30 shadow-lg hidden sm:block" />
             <div>
-              <Badge tone="green" className="bg-white/20 text-white">{(data.farmName || 'Your Farm')} · Yala & Maha cycles</Badge>
-              <h2 className="mt-3 font-display text-2xl lg:text-3xl font-800 leading-tight">Selvar, {user?.displayName?.split(' ').slice(-1)[0] || data.owner.split(' ').slice(-1)[0]}.</h2>
+              <Badge tone="green" className="bg-white/20 text-white">{(data.farmName || 'Your Farm')} · {user?.role === 'admin' ? 'Administrator' : user?.role === 'dataentry' ? 'Data Entry' : 'User'}</Badge>
+              <h2 className="mt-3 font-display text-2xl lg:text-3xl font-800 leading-tight">{user?.displayName || data.owner || 'Administrator'}.</h2>
               <p className="mt-1 text-primary-100 text-sm max-w-lg">
                 Your farm, nursery and accounts — all in one place. Net profit to date is <span className="font-700 text-white">{LKR(overall.profit)}</span>.
               </p>
