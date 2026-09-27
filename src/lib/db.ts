@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import type {
   AppData, AppSettings, Crop, CropExpense, CropHarvest, NurseryBatch, NurseryCost,
-  NurserySale, NurseryTransfer, Worker, Attendance, Voucher, LedgerEntry, Expense, StaffUser,
+  NurserySale, NurseryTransfer, Worker, Attendance, Voucher, VoucherLineItem, LedgerEntry, Expense, StaffUser,
   FarmDevelopment, PermissionEntry, PermissionModule, ModuleAccess,
   EmployeeAdvance, AdvanceRecovery, SalaryPayment,
 } from './types';
@@ -147,10 +147,21 @@ function fromAttendance(a: Attendance): Record<string, unknown> {
 }
 
 function toVoucher(r: Record<string, unknown>): Voucher {
-  return { id: r.id as string, voucherNo: r.voucher_no as string, date: r.date as string, kind: r.kind as Voucher['kind'], party: r.party as string, description: r.description as string, amount: Number(r.amount), reference: (r.reference as string) || undefined, paymentMethod: (r.payment_method as Voucher['paymentMethod']) || undefined, chequeNo: (r.cheque_no as string) || undefined };
+  let lineItems: VoucherLineItem[] | undefined;
+  if (Array.isArray(r.line_items)) {
+    lineItems = (r.line_items as Record<string, unknown>[]).map((li) => ({
+      name: String(li.name || ''),
+      crop: String(li.crop || ''),
+      task: String(li.task || ''),
+      dailyWage: Number(li.dailyWage || 0),
+      daysQty: Number(li.daysQty || 0),
+      totalAmount: Number(li.totalAmount || 0),
+    }));
+  }
+  return { id: r.id as string, voucherNo: r.voucher_no as string, date: r.date as string, kind: r.kind as Voucher['kind'], party: r.party as string, description: r.description as string, amount: Number(r.amount), reference: (r.reference as string) || undefined, paymentMethod: (r.payment_method as Voucher['paymentMethod']) || undefined, chequeNo: (r.cheque_no as string) || undefined, lineItems };
 }
 function fromVoucher(v: Voucher): Record<string, unknown> {
-  return { id: v.id, voucher_no: v.voucherNo, date: v.date, kind: v.kind, party: v.party, description: v.description, amount: v.amount, reference: v.reference || null, payment_method: v.paymentMethod || null, cheque_no: v.chequeNo || null };
+  return { id: v.id, voucher_no: v.voucherNo, date: v.date, kind: v.kind, party: v.party, description: v.description, amount: v.amount, reference: v.reference || null, payment_method: v.paymentMethod || null, cheque_no: v.chequeNo || null, line_items: v.lineItems || null };
 }
 
 function toLedgerEntry(r: Record<string, unknown>): LedgerEntry {

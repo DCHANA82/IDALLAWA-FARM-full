@@ -188,6 +188,15 @@ export interface Attendance {
   expenseAllocation?: ExpenseAllocation;
 }
 
+export interface VoucherLineItem {
+  name: string;
+  crop: string;
+  task: string;
+  dailyWage: number;
+  daysQty: number;
+  totalAmount: number;
+}
+
 export interface Voucher {
   id: string;
   voucherNo: string;
@@ -199,6 +208,7 @@ export interface Voucher {
   reference?: string;
   paymentMethod?: 'Cash' | 'Cheque' | 'Bank Transfer';
   chequeNo?: string;
+  lineItems?: VoucherLineItem[];
 }
 
 export interface LedgerEntry {

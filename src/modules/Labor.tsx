@@ -8,11 +8,11 @@ import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmD
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable, StatusBadge } from '@/components/DataTable';
 import { TabBar } from '@/components/TabBar';
-import { printContent, VoucherPrint, PayslipPrint } from '@/components/print';
+import { printContent, printPayrollVoucher, VoucherPrint, PayslipPrint, PayrollVoucherPrint } from '@/components/print';
 import type { PayslipBreakdown } from '@/components/print';
 import { useToast } from '@/components/toast';
 import { AdvancesTab, PaymentsTab } from '@/components/PayrollTabs';
-import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType, EmployeeAdvance, AdvanceRecovery, SalaryPayment, AdvanceRecoveryTarget, SalaryType, PaymentMethod, AdvanceStatus } from '@/lib/types';
+import type { Worker, Attendance, ExpenseAllocation, AllocationType, CropExpense, Expense, EmploymentType, EmployeeAdvance, AdvanceRecovery, SalaryPayment, AdvanceRecoveryTarget, SalaryType, PaymentMethod, AdvanceStatus, VoucherLineItem, Voucher } from '@/lib/types';
 
 type Tab = 'workers' | 'attendance' | 'settlement' | 'advances' | 'payments' | 'vouchers';
 
@@ -31,6 +31,7 @@ export function LaborModule() {
   const [tab, setTab] = useState<Tab>('workers');
   const [modal, setModal] = useState<null | { kind: 'worker' | 'attendance'; edit?: Worker | Attendance }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'workers' | 'attendance'; id: string; name: string }>(null);
+  const [confirmDeleteVoucher, setConfirmDeleteVoucher] = useState<Voucher | null>(null);
   const [settlementWorkerId, setSettlementWorkerId] = useState<string>('');
   const monthISO = new Date().toISOString().slice(0, 7);
   const [payMonth, setPayMonth] = useState(monthISO);
@@ -161,9 +162,34 @@ export function LaborModule() {
               { key: 'desc', header: 'Description', render: (v) => v.description },
               { key: 'amount', header: 'Amount', align: 'right', render: (v) => <span className="font-700 text-success-700">{LKR(v.amount)}</span>, restricted: true },
               { key: 'act', header: '', render: (v) => (
-                <button className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" title="Print voucher" onClick={(e) => { e.stopPropagation(); printContent(<VoucherPrint voucherNo={v.voucherNo} date={fmtDate(v.date)} kind={v.kind} party={v.party} description={v.description} amount={v.amount} reference={v.reference} farmName={data.farmName} owner={data.owner} />); }}>
-                  <Printer size={15} />
-                </button>
+                <div className="flex gap-1">
+                  <button className="p-1.5 rounded-lg hover:bg-neutral-100 text-neutral-500" title="Print voucher" onClick={(e) => {
+                    e.stopPropagation();
+                    if (v.kind === 'Payroll' && v.lineItems && v.lineItems.length > 0) {
+                      printPayrollVoucher(
+                        <PayrollVoucherPrint
+                          farmName={data.farmName || 'IDALLEWA AGRO FARM'}
+                          owner={data.owner}
+                          payMonth={v.reference?.replace('PAY-', '') || v.date.slice(0, 7)}
+                          date={fmtDate(v.date)}
+                          voucherNo={v.voucherNo}
+                          lineItems={v.lineItems}
+                          totalAmount={v.amount}
+                          logo={data.logo}
+                        />
+                      );
+                    } else {
+                      printContent(<VoucherPrint voucherNo={v.voucherNo} date={fmtDate(v.date)} kind={v.kind} party={v.party} description={v.description} amount={v.amount} reference={v.reference} farmName={data.farmName} owner={data.owner} />);
+                    }
+                  }}>
+                    <Printer size={15} />
+                  </button>
+                  {isAdmin && (
+                    <button className="p-1.5 rounded-lg hover:bg-error-50 text-neutral-400 hover:text-error-600" title="Delete voucher" onClick={(e) => { e.stopPropagation(); setConfirmDeleteVoucher(v); }}>
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
               ) },
             ]}
           />
@@ -182,15 +208,92 @@ export function LaborModule() {
         cancelLabel="Cancel"
         danger
       />
+
+      <ConfirmDialog
+        open={!!confirmDeleteVoucher}
+        onClose={() => setConfirmDeleteVoucher(null)}
+        onConfirm={() => {
+          if (!confirmDeleteVoucher) return;
+          update('vouchers', data.vouchers.filter((v) => v.id !== confirmDeleteVoucher.id));
+          deleteRow('vouchers', confirmDeleteVoucher.id).catch(() => {});
+          toast('Voucher deleted', 'success');
+          setConfirmDeleteVoucher(null);
+        }}
+        title="Delete this voucher?"
+        message={`Are you sure you want to delete voucher "${confirmDeleteVoucher?.voucherNo}"? This will NOT delete the underlying attendance or payroll records. This action cannot be undone.`}
+        confirmLabel="Yes, Delete Voucher"
+        cancelLabel="Cancel"
+        danger
+      />
     </div>
   );
 
   function generatePayrollVoucher() {
     const payTotal = payrollMonthTotals(data, payMonth);
     if (payTotal.total <= 0) { toast('No payroll to generate voucher for', 'error'); return; }
-    const v = { id: newId('vo'), voucherNo: nextVoucherNo(), date: todayISO(), kind: 'Payroll' as const, party: 'Labor Group', description: `Payroll for ${payMonth}`, amount: payTotal.total, reference: `PAY-${payMonth}` };
+
+    const ref = `PAY-${payMonth}`;
+    const existing = data.vouchers.find((v) => v.kind === 'Payroll' && v.reference === ref);
+    if (existing) {
+      toast(`A payroll voucher already exists for ${payMonth}. Voucher No: ${existing.voucherNo}`, 'error');
+      setTab('vouchers');
+      return;
+    }
+
+    const lineItems: VoucherLineItem[] = [];
+
+    for (const a of data.attendance.filter((a) => a.date.startsWith(payMonth) && a.status !== 'Absent')) {
+      const w = data.workers.find((x) => x.id === a.workerId);
+      if (!w) continue;
+      const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+      if (et !== 'DAILY' && et !== 'HYBRID') continue;
+      const crop = a.expenseAllocation?.cropId ? data.crops.find((c) => c.id === a.expenseAllocation!.cropId) : undefined;
+      const task = a.expenseAllocation?.activity || a.taskPlot || a.expenseAllocation?.developmentCategory || 'General';
+      const dailyWage = a.overrideRate ?? w.defaultDailyRate ?? w.dailyWage;
+      const totalAmount = a.amount + (a.fuelTransportAllowance || 0) + (a.attendanceAllowance || 0) + (a.otherAllowances || 0);
+      lineItems.push({
+        name: w.name,
+        crop: crop?.name || 'Unallocated',
+        task,
+        dailyWage,
+        daysQty: 1,
+        totalAmount,
+      });
+    }
+
+    for (const w of data.workers) {
+      const et = w.employmentType || (w.type === 'Permanent' ? 'MONTHLY' : 'DAILY');
+      if (et !== 'MONTHLY' && et !== 'HYBRID') continue;
+      const payout = workerPayout(data, w, payMonth);
+      if (payout <= 0) continue;
+      const daysWorked = data.attendance.filter((a) => a.workerId === w.id && a.date.startsWith(payMonth) && a.status !== 'Absent').length;
+      lineItems.push({
+        name: w.name,
+        crop: 'Monthly Salary',
+        task: w.role || 'Monthly',
+        dailyWage: w.baseMonthlySalary ?? w.monthlyBasic + w.allowances,
+        daysQty: daysWorked,
+        totalAmount: payout,
+      });
+    }
+
+    const v: Voucher = {
+      id: newId('vo'),
+      voucherNo: nextVoucherNo(),
+      date: todayISO(),
+      kind: 'Payroll',
+      party: 'All Staff',
+      description: `Payroll for ${payMonth}`,
+      amount: payTotal.total,
+      reference: ref,
+      lineItems,
+    };
     update('vouchers', [v, ...data.vouchers]);
-    upsertRow('vouchers', v as never).catch(() => {});
+    upsertRow('vouchers', v).catch((e) => {
+      toast('Failed to save voucher — it may already exist. Refreshing...', 'error');
+      setTimeout(() => window.location.reload(), 1500);
+    });
+    toast('Payroll voucher generated', 'success');
     setTab('vouchers');
   }
 }

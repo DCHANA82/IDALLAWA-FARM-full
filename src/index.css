@@ -129,10 +129,10 @@ kbd {
     break-inside: avoid;
     page-break-inside: avoid;
   }
-  body.printing-payslip @page {
-    size: A4 landscape;
-    margin: 5mm;
-  }
+}
+
+@media print {
+  body.printing-payslip { @page { size: A4 landscape; margin: 5mm; } }
 }
 
 .print-a5 {
@@ -155,4 +155,51 @@ kbd {
   height: 91mm;
   background: #fff;
   overflow: hidden;
+}
+
+/* A4 portrait payroll voucher */
+.print-payroll-voucher {
+  width: 190mm;
+  min-height: 277mm;
+  background: #fff;
+  padding: 10mm;
+  box-sizing: border-box;
+}
+
+@media print {
+  body.printing-payroll-voucher {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  body.printing-payroll-voucher * {
+    visibility: hidden !important;
+  }
+  body.printing-payroll-voucher #print-root,
+  body.printing-payroll-voucher #print-root * {
+    visibility: visible !important;
+  }
+  body.printing-payroll-voucher #print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  body.printing-payroll-voucher .no-print {
+    display: none !important;
+  }
+}
+
+@media print {
+  body.printing-payroll-voucher { @page { size: A4 portrait; margin: 10mm; } }
+}
+
+@media print {
+  body.printing-payroll-voucher table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+  body.printing-payroll-voucher tr {
+    page-break-inside: avoid !important;
+  }
 }

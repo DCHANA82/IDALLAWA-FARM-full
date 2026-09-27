@@ -60,6 +60,34 @@ export function printExpenseSlip(node: ReactNode) {
   }, 120);
 }
 
+/** Render an A4 portrait payroll voucher and trigger window.print() */
+export function printPayrollVoucher(node: ReactNode) {
+  let container = document.getElementById('print-root');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'print-root';
+    document.body.appendChild(container);
+  }
+  const root = createRoot(container);
+  root.render(<PayrollVoucherPrintShell>{node}</PayrollVoucherPrintShell>);
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      root.unmount();
+      container?.remove();
+    }, 500);
+  }, 120);
+}
+
+/** Shell for A4 portrait payroll voucher */
+function PayrollVoucherPrintShell({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    document.body.classList.add('printing', 'printing-payroll-voucher');
+    return () => { document.body.classList.remove('printing', 'printing-payroll-voucher'); };
+  }, []);
+  return <div className="print-payroll-voucher mx-auto p-0">{children}</div>;
+}
+
 /** Render a 1/3 A4 voucher slip and trigger window.print() */
 export function printVoucherSlip(node: ReactNode) {
   let container = document.getElementById('print-root');
@@ -535,6 +563,125 @@ function PayslipRow({ label, value }: { label: string; value: number }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '7px', marginBottom: '1px' }}>
       <span style={{ color: '#444' }}>{label}</span>
       <span style={{ fontWeight: 600 }}>{LKR(value)}</span>
+    </div>
+  );
+}
+
+import type { VoucherLineItem } from '@/lib/types';
+
+export function PayrollVoucherPrint({
+  farmName, owner, payMonth, date, voucherNo, lineItems, totalAmount, logo,
+}: {
+  farmName: string;
+  owner: string;
+  payMonth: string;
+  date: string;
+  voucherNo: string;
+  lineItems: VoucherLineItem[];
+  totalAmount: number;
+  logo?: string;
+}) {
+  const totalDaysQty = lineItems.reduce((s, li) => s + li.daysQty, 0);
+
+  return (
+    <div id="printable-payroll-voucher" className="payroll-voucher-print-root" style={{ fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", color: '#1a1f22', fontSize: '11px', lineHeight: 1.4 }}>
+      {/* Header */}
+      <div style={{ textAlign: 'center', borderBottom: '2px solid #1b3c1a', paddingBottom: '6px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          {logo && <img src={logo} alt="logo" style={{ width: '36px', height: '36px', objectFit: 'cover', borderRadius: '4px' }} />}
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '18px', color: '#1b3c1a', letterSpacing: '0.5px' }}>{farmName || 'IDALLEWA AGRO FARM'}</div>
+            <div style={{ fontSize: '9px', color: '#666' }}>Farm Management System</div>
+          </div>
+        </div>
+        <div style={{ marginTop: '8px', fontSize: '14px', fontWeight: 700, color: '#1b3c1a' }}>
+          LABOR &amp; PAYROLL SUMMARY
+        </div>
+        <div style={{ fontSize: '11px', color: '#555' }}>සේවක වැටුප් සාරාංශය</div>
+      </div>
+
+      {/* Meta box — top right */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <div style={{ border: '1px solid #999', borderRadius: '4px', padding: '6px 12px', fontSize: '10px', minWidth: '180px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+            <span style={{ color: '#666' }}>Period:</span>
+            <span style={{ fontWeight: 600 }}>{payMonth}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#666' }}>Date:</span>
+            <span style={{ fontWeight: 600 }}>{date}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
+            <span style={{ color: '#666' }}>Voucher No:</span>
+            <span style={{ fontWeight: 600 }}>{voucherNo}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Employee table */}
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+        <thead>
+          <tr style={{ background: '#f0f0f0', borderBottom: '2px solid #333' }}>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'center', width: '5%' }}>No.<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>අංකය</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'left', width: '22%' }}>Employee Name<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>සේවක නම</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'left', width: '18%' }}>Crop<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>අභෝගය</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'left', width: '20%' }}>Task<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>කාර්යය</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'right', width: '12%' }}>Daily Wage<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>දෛනික මුදල</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'right', width: '10%' }}>Days / Qty<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>දින / ප්‍රමාණය</span></th>
+            <th style={{ border: '1px solid #999', padding: '5px 6px', textAlign: 'right', width: '13%' }}>Total Amount<br /><span style={{ fontWeight: 400, fontSize: '8px' }}>එකතුව</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {lineItems.map((li, i) => (
+            <tr key={i} style={{ pageBreakInside: 'avoid' }}>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'center' }}>{i + 1}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}>{li.name}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}>{li.crop}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px' }}>{li.task}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right' }}>{LKR(li.dailyWage)}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right' }}>{li.daysQty}</td>
+              <td style={{ border: '1px solid #ccc', padding: '4px 6px', textAlign: 'right', fontWeight: 600 }}>{LKR(li.totalAmount)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ borderTop: '2px solid #333', fontWeight: 700 }}>
+            <td colSpan={5} style={{ border: '1px solid #999', padding: '6px', textAlign: 'right' }}>Total / එකතුව:</td>
+            <td style={{ border: '1px solid #999', padding: '6px', textAlign: 'right' }}>{totalDaysQty}</td>
+            <td style={{ border: '1px solid #999', padding: '6px', textAlign: 'right', fontSize: '12px' }}>{LKR(totalAmount)}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {/* Amount in words */}
+      <div style={{ marginTop: '8px', fontSize: '10px', fontStyle: 'italic', color: '#444' }}>
+        Amount in Words: {numberToWords(totalAmount)} Only
+      </div>
+
+      {/* Signature section */}
+      <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '24px', fontSize: '10px', textAlign: 'center', pageBreakInside: 'avoid' }}>
+        <div>
+          <div style={{ borderBottom: '1px solid #333', height: '30px', marginBottom: '4px' }} />
+          <div style={{ fontWeight: 600 }}>Prepared By</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>සකස් කළේ</div>
+          <div style={{ marginTop: '6px', fontSize: '9px', color: '#666' }}>Signature: ________</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>Date: ________</div>
+        </div>
+        <div>
+          <div style={{ borderBottom: '1px solid #333', height: '30px', marginBottom: '4px' }} />
+          <div style={{ fontWeight: 600 }}>Approved By</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>අනුමත කළේ</div>
+          <div style={{ marginTop: '6px', fontSize: '9px', color: '#666' }}>Signature: ________</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>Date: ________</div>
+        </div>
+        <div>
+          <div style={{ borderBottom: '1px solid #333', height: '30px', marginBottom: '4px' }} />
+          <div style={{ fontWeight: 600 }}>Received By</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>ලබා ගත්තේ</div>
+          <div style={{ marginTop: '6px', fontSize: '9px', color: '#666' }}>Signature: ________</div>
+          <div style={{ fontSize: '9px', color: '#666' }}>Date: ________</div>
+        </div>
+      </div>
     </div>
   );
 }
