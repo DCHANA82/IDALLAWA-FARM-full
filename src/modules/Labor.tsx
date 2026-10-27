@@ -32,6 +32,9 @@ export function LaborModule() {
   const [modal, setModal] = useState<null | { kind: 'worker' | 'attendance'; edit?: Worker | Attendance }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { kind: 'workers' | 'attendance'; id: string; name: string }>(null);
   const [confirmDeleteVoucher, setConfirmDeleteVoucher] = useState<Voucher | null>(null);
+  const [workerFilter, setWorkerFilter] = useState<string>('All');
+  const [attWorkerFilter, setAttWorkerFilter] = useState<string>('All');
+  const [attAllocFilter, setAttAllocFilter] = useState<string>('All');
   const [settlementWorkerId, setSettlementWorkerId] = useState<string>('');
   const monthISO = new Date().toISOString().slice(0, 7);
   const [payMonth, setPayMonth] = useState(monthISO);
@@ -39,6 +42,11 @@ export function LaborModule() {
 
   const permanent = data.workers.filter((w) => w.type === 'Permanent');
   const casual = data.workers.filter((w) => w.type === 'Casual');
+  const filteredWorkers = workerFilter === 'All' ? data.workers : data.workers.filter((w) => w.id === workerFilter);
+  const filteredAttendance = data.attendance.filter((a) =>
+    (attWorkerFilter === 'All' || a.workerId === attWorkerFilter) &&
+    (attAllocFilter === 'All' || (a.expenseAllocation?.allocationType || 'Unallocated') === attAllocFilter)
+  );
 
   const doDelete = () => {
     if (!confirmDelete) return;
@@ -96,8 +104,14 @@ export function LaborModule() {
               <Button size="sm" variant="outline" icon={<Download size={14} />} onClick={() => downloadFile('workers.csv', toCSV(data.workers as unknown as Record<string, unknown>[]), 'text/csv;charset=utf-8;')}>Export</Button>
               {isAdmin && <Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: 'worker' })}>Add Worker</Button>}
             </div>} />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Select label="Employee Name" value={workerFilter} onChange={(e) => setWorkerFilter(e.target.value)} className="w-48">
+              <option value="All">All Workers</option>
+              {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </Select>
+          </div>
           <DataTable
-            rows={data.workers}
+            rows={filteredWorkers}
             onRowClick={(w) => isAdmin && setModal({ kind: 'worker', edit: w })}
             onEdit={(w) => setModal({ kind: 'worker', edit: w })}
             onDelete={(w) => setConfirmDelete({ kind: 'workers', id: w.id, name: w.name })}
@@ -117,8 +131,20 @@ export function LaborModule() {
         <Card className="p-5">
           <SectionTitle title="Attendance & Task Allocation" subtitle="Daily attendance per field plot / nursery" icon={<CalendarDays size={18} />}
             action={isAdmin && <Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: 'attendance' })}>Add Entry</Button>} />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Select label="Worker" value={attWorkerFilter} onChange={(e) => setAttWorkerFilter(e.target.value)} className="w-48">
+              <option value="All">All Workers</option>
+              {data.workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </Select>
+            <Select label="Allocation" value={attAllocFilter} onChange={(e) => setAttAllocFilter(e.target.value)} className="w-48">
+              <option value="All">All Allocations</option>
+              <option value="CROP">Crop</option>
+              <option value="FARM_DEVELOPMENT">Farm Development</option>
+              <option value="Unallocated">Unallocated</option>
+            </Select>
+          </div>
           <DataTable
-            rows={data.attendance}
+            rows={filteredAttendance}
             onRowClick={(a) => isAdmin && setModal({ kind: 'attendance', edit: a })}
             onEdit={(a) => setModal({ kind: 'attendance', edit: a })}
             onDelete={(a) => { const w = data.workers.find((x) => x.id === a.workerId); setConfirmDelete({ kind: 'attendance', id: a.id, name: w ? w.name : 'this record' }); }}

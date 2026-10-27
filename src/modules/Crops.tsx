@@ -21,6 +21,19 @@ export function CropsModule() {
   const [modal, setModal] = useState<null | { kind: 'crop' | 'expense' | 'harvest'; edit?: Crop | CropExpense | CropHarvest }>(null);
   const [confirmDelete, setConfirmDelete] = useState<null | { key: 'crops' | 'cropExpenses' | 'cropHarvests'; id: string; name: string }>(null);
   const [seasonFilter, setSeasonFilter] = useState<string>('All');
+  const [cropPlotFilter, setCropPlotFilter] = useState<string>('All');
+  const [expenseCropFilter, setExpenseCropFilter] = useState<string>('All');
+  const [expenseCatFilter, setExpenseCatFilter] = useState<string>('All');
+  const [harvestCropFilter, setHarvestCropFilter] = useState<string>('All');
+
+  const cropNames = Array.from(new Set(data.crops.map((c) => c.name))).sort();
+  const expenseCategories = Array.from(new Set(data.cropExpenses.map((e) => e.category).filter(Boolean))).sort();
+  const filteredCrops = cropPlotFilter === 'All' ? data.crops : data.crops.filter((c) => c.name === cropPlotFilter);
+  const filteredCropExpenses = data.cropExpenses.filter((e) =>
+    (expenseCropFilter === 'All' || e.cropId === expenseCropFilter) &&
+    (expenseCatFilter === 'All' || e.category === expenseCatFilter)
+  );
+  const filteredHarvests = harvestCropFilter === 'All' ? data.cropHarvests : data.cropHarvests.filter((h) => h.cropId === harvestCropFilter);
 
   const seasons = settings?.seasons || ['Yala', 'Maha'];
   const pnls = allCropPnL(data);
@@ -60,8 +73,14 @@ export function CropsModule() {
               <Button size="sm" variant="outline" icon={<Download size={14} />} onClick={() => exportCSV('crops.csv', data.crops as unknown as Record<string, unknown>[])}>Export</Button>
               <Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: 'crop' })}>Add Crop</Button>
             </div>} />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Select label="Crop" value={cropPlotFilter} onChange={(e) => setCropPlotFilter(e.target.value)} className="w-48">
+              <option value="All">All Crops</option>
+              {cropNames.map((n) => <option key={n} value={n}>{n}</option>)}
+            </Select>
+          </div>
           <DataTable
-            rows={data.crops}
+            rows={filteredCrops}
             onRowClick={(c) => setModal({ kind: 'crop', edit: c })}
             onEdit={(c) => setModal({ kind: 'crop', edit: c })}
             onDelete={(c) => setConfirmDelete({ key: 'crops', id: c.id, name: c.name })}
@@ -82,8 +101,18 @@ export function CropsModule() {
         <Card className="p-5">
           <SectionTitle title="Crop Expenses" subtitle="Field inputs: seeds, land prep, fertilizer, harvesting" icon={<Sprout size={18} />}
             action={<Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: 'expense' })}>Add Expense</Button>} />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Select label="Crop" value={expenseCropFilter} onChange={(e) => setExpenseCropFilter(e.target.value)} className="w-48">
+              <option value="All">All Crops</option>
+              {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
+            </Select>
+            <Select label="Category" value={expenseCatFilter} onChange={(e) => setExpenseCatFilter(e.target.value)} className="w-48">
+              <option value="All">All Categories</option>
+              {expenseCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+            </Select>
+          </div>
           <DataTable
-            rows={data.cropExpenses}
+            rows={filteredCropExpenses}
             onRowClick={(e) => setModal({ kind: 'expense', edit: e })}
             onEdit={(e) => setModal({ kind: 'expense', edit: e })}
             onDelete={(e) => setConfirmDelete({ key: 'cropExpenses', id: e.id, name: e.description || e.category || 'this expense' })}
@@ -103,8 +132,14 @@ export function CropsModule() {
         <Card className="p-5">
           <SectionTitle title="Harvest Records" subtitle="Sales to buyers / economic centres" icon={<Scale size={18} />}
             action={<Button size="sm" icon={<Plus size={14} />} onClick={() => setModal({ kind: 'harvest' })}>Add Harvest</Button>} />
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Select label="Crop" value={harvestCropFilter} onChange={(e) => setHarvestCropFilter(e.target.value)} className="w-48">
+              <option value="All">All Crops</option>
+              {data.crops.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.plot}</option>)}
+            </Select>
+          </div>
           <DataTable
-            rows={data.cropHarvests}
+            rows={filteredHarvests}
             onRowClick={(h) => setModal({ kind: 'harvest', edit: h })}
             onEdit={(h) => setModal({ kind: 'harvest', edit: h })}
             onDelete={(h) => setConfirmDelete({ key: 'cropHarvests', id: h.id, name: `${h.buyer || 'harvest'}` })}
