@@ -2,7 +2,7 @@ import { useRef, useState, useMemo } from 'react';
 import { Download, FileSpreadsheet, FileText, Upload, Database, Sparkles, TrendingUp, Sprout, BookOpen, BarChart3, Hammer, Wallet } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { LKR, downloadFile, toCSV, fmtDate } from '@/lib/format';
-import { nurseryTotals, farmOverallPnL, ledgerBalance, payrollReportData } from '@/lib/calc';
+import { nurseryTotals, farmOverallPnL, ledgerBalance, shopCreditBalances, payrollReportData } from '@/lib/calc';
 import { exportCSV, exportAllZip, cropPnLRows, nurseryPnLRows, seasonRows, overallRow, exportPDFviaPrint } from '@/lib/export';
 import { parseCSV, mapImport, mergeImport, sampleCSV, type ImportTarget } from '@/lib/import';
 import { Card, Button, Badge, SectionTitle, Stat, Modal, Select } from '@/components/ui';
@@ -66,12 +66,22 @@ const ALL_REPORTS: ReportDef[] = [
     },
   },
   {
-    key: 'ledger', title: 'Funding & Liabilities', desc: 'Capital, loans, shop transfers', icon: <BookOpen size={18} />,
-    columns: [{ key: 'Account', header: 'Account' }, { key: 'In', header: 'In' }, { key: 'Out', header: 'Out' }, { key: 'Balance', header: 'Balance' }],
+    key: 'ledger', title: 'Funding & Liabilities', desc: 'Capital, loans, shop credit sub-accounts', icon: <BookOpen size={18} />,
+    columns: [{ key: 'Account', header: 'Account' }, { key: 'In', header: 'In' }, { key: 'Out', header: 'Out' }, { key: 'Balance', header: 'Balance' }, { key: 'Status', header: 'Status' }],
     getRows: (d, f) => {
       let data = d;
       if (f.year) data = filterByYear(d, f.year);
-      return ['Capital', 'Retail Shop Transfer', 'Bank Loan', 'Shop Credit', 'Owner Equity Return'].map((k) => { const b = ledgerBalance(data, k); return { Account: k, In: b.in, Out: b.out, Balance: b.net }; });
+      const sc = shopCreditBalances(data);
+      return [
+        { Account: 'Capital', In: ledgerBalance(data, 'Capital').in, Out: ledgerBalance(data, 'Capital').out, Balance: ledgerBalance(data, 'Capital').net, Status: '' },
+        { Account: 'Retail Shop Transfer', In: ledgerBalance(data, 'Retail Shop Transfer').in, Out: ledgerBalance(data, 'Retail Shop Transfer').out, Balance: ledgerBalance(data, 'Retail Shop Transfer').net, Status: '' },
+        { Account: 'Bank Loan', In: ledgerBalance(data, 'Bank Loan').in, Out: ledgerBalance(data, 'Bank Loan').out, Balance: ledgerBalance(data, 'Bank Loan').net, Status: '' },
+        { Account: 'Shop Credit - Materials', In: sc.materials.in, Out: sc.materials.out, Balance: sc.materials.net, Status: '' },
+        { Account: 'Shop Credit - Cash Funding', In: sc.cashFunding.in, Out: sc.cashFunding.out, Balance: sc.cashFunding.net, Status: '' },
+        { Account: 'Shop Credit (combined)', In: sc.materials.in + sc.cashFunding.in, Out: sc.materials.out + sc.cashFunding.out, Balance: sc.combined, Status: 'Sub-accounts only' },
+        ...sc.unresolved.map((e) => ({ Account: `${e.kind} (unresolved)`, In: e.amount, Out: 0, Balance: e.amount, Status: 'Unresolved' })),
+        { Account: 'Owner Equity Return', In: ledgerBalance(data, 'Owner Equity Return').in, Out: ledgerBalance(data, 'Owner Equity Return').out, Balance: ledgerBalance(data, 'Owner Equity Return').net, Status: '' },
+      ];
     },
   },
   {

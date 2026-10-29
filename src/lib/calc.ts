@@ -379,6 +379,56 @@ export function ledgerBalance(data: AppData, kind: string): { in: number; out: n
   return { in: ins, out: outs, net: ins - outs };
 }
 
+// ─── Shop Credit sub-account balances ───
+// Shop Credit is split into Materials (agri inputs) and Cash Funding (operational cash).
+// Historical entries with the original "Shop Credit" kind and the custom "Agri Inpurt by shop lone"
+// kind are treated as unresolved — they are NOT automatically added to either sub-account.
+
+export interface ShopCreditReconciliationEntry {
+  id: string;
+  date: string;
+  kind: string;
+  description: string;
+  amount: number;
+  unresolved: true;
+}
+
+export interface ShopCreditBalances {
+  materials: { in: number; out: number; net: number };
+  cashFunding: { in: number; out: number; net: number };
+  unresolved: ShopCreditReconciliationEntry[];
+  unresolvedTotal: number;
+  combined: number; // materials.net + cashFunding.net (excludes unresolved)
+  totalWithUnresolved: number; // combined + unresolvedTotal (may double-count — label as estimate only)
+}
+
+export function shopCreditBalances(data: AppData): ShopCreditBalances {
+  const materials = ledgerBalance(data, 'Shop Credit - Materials');
+  const cashFunding = ledgerBalance(data, 'Shop Credit - Cash Funding');
+
+  const unresolvedKinds = ['Shop Credit', 'Agri Inpurt by shop lone'];
+  const unresolved = data.ledger
+    .filter((l) => unresolvedKinds.includes(l.kind) && l.direction === 'In')
+    .map((l) => ({
+      id: l.id,
+      date: l.date,
+      kind: l.kind,
+      description: l.description,
+      amount: l.amount,
+      unresolved: true as const,
+    }));
+  const unresolvedTotal = unresolved.reduce((s, e) => s + e.amount, 0);
+
+  return {
+    materials,
+    cashFunding,
+    unresolved,
+    unresolvedTotal,
+    combined: materials.net + cashFunding.net,
+    totalWithUnresolved: materials.net + cashFunding.net + unresolvedTotal,
+  };
+}
+
 export function farmOverallPnL(data: AppData) {
   const cropPnls = allCropPnL(data);
   const cropRevenue = cropPnls.reduce((s, p) => s + p.revenue, 0);

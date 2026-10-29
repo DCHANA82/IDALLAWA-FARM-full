@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Plus, BookOpen, Printer, Download, Wallet, Landmark, Store, UserCog, ArrowDownLeft, ArrowUpRight, Hammer, Pencil, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Printer, Download, Wallet, Landmark, Store, UserCog, ArrowDownLeft, ArrowUpRight, Hammer, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { useStore, newId, upsertRow } from '@/lib/store';
 import { useAuth } from '@/lib/auth';
 import { LKR, fmtDate, todayISO } from '@/lib/format';
-import { ledgerBalance } from '@/lib/calc';
+import { ledgerBalance, shopCreditBalances } from '@/lib/calc';
 import { Card, Button, Badge, SectionTitle, Stat, Modal, Input, Select, ConfirmDialog } from '@/components/ui';
 import { DynamicSelect } from '@/components/DynamicSelect';
 import { DataTable } from '@/components/DataTable';
@@ -24,7 +24,9 @@ const TAB_PERM_MAP: Record<Tab, PermissionModule> = {
   development: 'capex',
 };
 
-const LEDGER_KINDS: LedgerKind[] = ['Capital', 'Retail Shop Transfer', 'Bank Loan', 'Shop Credit', 'Owner Equity Return'];
+const LEDGER_KINDS: LedgerKind[] = ['Capital', 'Retail Shop Transfer', 'Bank Loan', 'Shop Credit - Materials', 'Shop Credit - Cash Funding', 'Owner Equity Return'];
+
+const UNRESOLVED_SHOP_CREDIT_KINDS = ['Shop Credit', 'Agri Inpurt by shop lone'];
 
 export function FinanceModule() {
   const { data, remove } = useStore();
@@ -49,7 +51,8 @@ export function FinanceModule() {
   const loan = ledgerBalance(data, 'Bank Loan');
   const shop = ledgerBalance(data, 'Retail Shop Transfer');
   const drawings = ledgerBalance(data, 'Owner Equity Return').out;
-  const shopCredit = ledgerBalance(data, 'Shop Credit');
+  const sc = shopCreditBalances(data);
+  const unresolvedEntries = data.ledger.filter((l) => UNRESOLVED_SHOP_CREDIT_KINDS.includes(l.kind));
 
   const doDelete = () => {
     if (!confirmDelete) return;
@@ -70,14 +73,45 @@ export function FinanceModule() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Stat label="Owner capital" value={LKR(cap.in)} sub={`Drawings ${LKR(drawings)}`} tone="green" icon={<Wallet size={18} />} />
         <Stat label="Bank loan outstanding" value={LKR(loan.net)} sub={`Received ${LKR(loan.in)} · Paid ${LKR(loan.out)}`} tone="red" icon={<Landmark size={18} />} />
-        <Stat label="Shop transfers" value={LKR(shop.in)} sub="From retail shop entity" tone="blue" icon={<Store size={18} />} />
-        <Stat label="Shop credit settled" value={LKR(shopCredit.out)} sub="Settlements to date" tone="yellow" icon={<UserCog size={18} />} />
+        <Stat label="Shop Credit — Materials" value={LKR(sc.materials.net)} sub={`In ${LKR(sc.materials.in)} · Out ${LKR(sc.materials.out)}`} tone="blue" icon={<Store size={18} />} />
+        <Stat label="Shop Credit — Cash Funding" value={LKR(sc.cashFunding.net)} sub={`In ${LKR(sc.cashFunding.in)} · Out ${LKR(sc.cashFunding.out)}`} tone="yellow" icon={<UserCog size={18} />} />
       </div>
+
+      {/* Shop Credit reconciliation banner */}
+      {unresolvedEntries.length > 0 && (
+        <Card className="p-4 border-secondary-200 bg-secondary-50/40">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 w-9 h-9 rounded-lg bg-secondary-100 text-secondary-700 flex items-center justify-center">
+              <AlertTriangle size={18} />
+            </div>
+            <div className="flex-1">
+              <div className="font-600 text-sm text-neutral-900">Shop Credit Reconciliation Required</div>
+              <div className="text-xs text-neutral-600 mt-0.5">
+                {unresolvedEntries.length} historical entr{unresolvedEntries.length === 1 ? 'y' : 'ies'} (total {LKR(sc.unresolvedTotal)}) use the original "Shop Credit" or "Agri Inpurt by shop lone" account kind. These are <strong>not automatically included</strong> in the Materials or Cash Funding sub-account balances to avoid double-counting. Please confirm whether each entry is Materials or Cash Funding.
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {unresolvedEntries.map((e) => (
+                  <span key={e.id} className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-white border border-secondary-200 text-neutral-700">
+                    <span className="font-600">{e.kind}</span>
+                    <span className="text-neutral-400">·</span>
+                    <span>{LKR(e.amount)}</span>
+                    <span className="text-neutral-400">·</span>
+                    <span className="text-neutral-500">{e.date}</span>
+                  </span>
+                ))}
+              </div>
+              <div className="mt-2 text-xs text-neutral-500">
+                Combined sub-account balance: <strong>{LKR(sc.combined)}</strong> · Unresolved total: <strong>{LKR(sc.unresolvedTotal)}</strong> · Grand total (estimate, may double-count): <strong>{LKR(sc.totalWithUnresolved)}</strong>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {LEDGER_KINDS.map((k) => {
           const b = ledgerBalance(data, k);
-          const icons: Record<string, React.ReactNode> = { Capital: <Wallet size={18} />, 'Retail Shop Transfer': <Store size={18} />, 'Bank Loan': <Landmark size={18} />, 'Shop Credit': <UserCog size={18} />, 'Owner Equity Return': <UserCog size={18} /> };
+          const icons: Record<string, React.ReactNode> = { Capital: <Wallet size={18} />, 'Retail Shop Transfer': <Store size={18} />, 'Bank Loan': <Landmark size={18} />, 'Shop Credit - Materials': <Store size={18} />, 'Shop Credit - Cash Funding': <UserCog size={18} />, 'Owner Equity Return': <UserCog size={18} /> };
           return (
             <Card key={k} className="p-4">
               <div className="flex items-center justify-between">
@@ -93,6 +127,25 @@ export function FinanceModule() {
           );
         })}
       </div>
+
+      {/* Combined Shop Credit summary */}
+      <Card className="p-4 border-primary-200 bg-primary-50/30">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-xs font-600 text-neutral-500 uppercase">Combined Shop Credit (sub-accounts only)</div>
+            <div className="font-display text-2xl font-800 text-primary-700 mt-1">{LKR(sc.combined)}</div>
+          </div>
+          <Store size={24} className="text-primary-400" />
+        </div>
+        <div className="mt-2 text-xs text-neutral-600">
+          Materials {LKR(sc.materials.net)} + Cash Funding {LKR(sc.cashFunding.net)} = <strong>{LKR(sc.combined)}</strong>
+          {sc.unresolved.length > 0 && (
+            <span className="block mt-1 text-secondary-700">
+              Plus {sc.unresolved.length} unresolved historical entr{sc.unresolved.length === 1 ? 'y' : 'ies'} totaling {LKR(sc.unresolvedTotal)} — not included in combined total pending reconciliation.
+            </span>
+          )}
+        </div>
+      </Card>
 
       <TabBar
         tabs={visibleTabs}

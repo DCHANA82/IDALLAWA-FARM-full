@@ -13,7 +13,7 @@ export type ExpenseClass =
   | 'Owner Equity Return'
   | 'Shop Credit Settlement';
 
-export type LedgerKind = 'Capital' | 'Retail Shop Transfer' | 'Bank Loan' | 'Shop Credit' | 'Owner Equity Return';
+export type LedgerKind = 'Capital' | 'Retail Shop Transfer' | 'Bank Loan' | 'Shop Credit' | 'Shop Credit - Materials' | 'Shop Credit - Cash Funding' | 'Owner Equity Return';
 export type LedgerDirection = 'In' | 'Out';
 
 export type CropType = 'Seasonal' | 'Perennial';
